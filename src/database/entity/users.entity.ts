@@ -39,7 +39,7 @@ export class UsersEntity {
   @Column()
   address: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, default: '/public/defaults/default-avatar.png' })
   avatar: string;
 
   @Column({ default: UserRole.STAFF })

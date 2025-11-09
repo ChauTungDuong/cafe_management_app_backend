@@ -1,9 +1,12 @@
 import { UsersEntity } from 'src/database/entity/users.entity';
 import { User } from './users.domain';
-
+const DEFAULT_AVATAR = '/public/default/default-avatar.jpg';
 export class UserMapper {
   static toDomain(raw: UsersEntity): User {
     const domainUser = new User();
+    if (!raw) {
+      return null;
+    }
     domainUser.id = raw.id;
     domainUser.name = raw.name;
     domainUser.email = raw.email;
@@ -29,10 +32,10 @@ export class UserMapper {
     entityUser.role = domain.role;
     entityUser.phone = domain.phone;
     entityUser.address = domain.address;
-    entityUser.avatar = domain.avatar;
+    entityUser.avatar = domain.avatar ?? DEFAULT_AVATAR;
     entityUser.gender = domain.gender;
     entityUser.birthday = domain.birthday;
-    entityUser.isActive = domain.isActive;
+    entityUser.isActive = domain.isActive ?? true;
 
     return entityUser;
   }
