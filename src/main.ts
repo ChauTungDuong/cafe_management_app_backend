@@ -17,7 +17,8 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:1420'],
+    credentials: true,
   });
 
   // sử dụng để loại bỏ các thuộc tính được đánh dấu bằng @Exclude trong class domain
