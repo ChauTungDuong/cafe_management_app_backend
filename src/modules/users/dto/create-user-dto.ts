@@ -6,11 +6,13 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 import { Transform } from 'class-transformer';
+import { PASSWORD_REGEX } from 'src/utils/constant';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -33,6 +35,10 @@ export class CreateUserDto {
   @MinLength(8)
   @MaxLength(100)
   @IsNotEmpty()
+  @Matches(PASSWORD_REGEX, {
+    message:
+      'Password must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@#$%^&+=!*)',
+  })
   password: string;
 
   @IsString()

@@ -4,16 +4,18 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
+import jwtConfig from './config/jwt.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './modules/users/users.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { AuthModule } from './modules/auth/auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig],
+      load: [appConfig, databaseConfig, jwtConfig],
     }),
     TypeOrmModule.forRootAsync({
       useFactory: databaseConfig,
@@ -26,6 +28,7 @@ import { join } from 'path';
       serveRoot: '/public',
     }),
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

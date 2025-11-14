@@ -56,4 +56,15 @@ export class UsersRepository {
   async delete(id: User['id']): Promise<void> {
     await this.usersRepository.softRemove({ id });
   }
+
+  async findByRefreshToken(refreshToken: string): Promise<User> {
+    return await this.usersRepository.findOne({ where: { refreshToken } });
+  }
+
+  async updateRefreshToken(
+    id: User['id'],
+    refreshToken: string,
+  ): Promise<void> {
+    await this.usersRepository.update({ id }, { refreshToken });
+  }
 }

@@ -7,11 +7,12 @@ import {
   DeleteDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  OneToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Exclude } from 'class-transformer';
 import { UserRole } from 'src/modules/users/dto/create-user-dto';
-
+import { OrderEntity } from './order.entity';
 @Entity('users')
 export class UsersEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -48,6 +49,9 @@ export class UsersEntity {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ nullable: true })
+  refreshToken: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
@@ -56,6 +60,9 @@ export class UsersEntity {
 
   @DeleteDateColumn()
   deletedAt?: Date;
+
+  @OneToMany(() => OrderEntity, (order) => order.createdBy)
+  orders: OrderEntity[];
 
   @BeforeInsert()
   @BeforeUpdate()
