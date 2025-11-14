@@ -14,7 +14,7 @@ export class AuthService {
     private userService: UsersService,
     private configService: ConfigService,
   ) {}
-  async login(user: User, response: Response) {
+  async login(user: User) {
     if (!user.isActive) {
       throw new BadRequestException('Tài khoản đã bị vô hiệu hóa');
     }
@@ -25,15 +25,22 @@ export class AuthService {
       name: user.name,
     };
 
-    await this.createAndUpdateRefreshToken(payload, response, user.id);
+    const newRefreshToken = await this.createAndUpdateRefreshToken(
+      payload,
+      user.id,
+    );
     // Secret và expiresIn đã được cấu hình trong AuthModule
     return {
       access_token: this.createToken(payload, 'JWT'),
+      refresh_token: newRefreshToken,
       user: user,
     };
   }
 
-  async RenewToken(refreshToken: string, response: Response) {
+  async RenewToken(refreshToken: string) {
+    if (!refreshToken) {
+      throw new BadRequestException('No refresh token provided');
+    }
     const payload = this.jwtService.verify(refreshToken, {
       secret: this.configService.get('jwt.JWT_REFRESH_SECRET'),
     });
@@ -47,11 +54,14 @@ export class AuthService {
       name: user.name,
       email: user.email,
     };
-    response.clearCookie('refreshToken');
-    await this.createAndUpdateRefreshToken(newPayload, response, user.id);
+    const newRefreshToken = await this.createAndUpdateRefreshToken(
+      newPayload,
+      user.id,
+    );
 
     return {
       access_token: this.createToken(newPayload, 'JWT'),
+      refresh_token: newRefreshToken,
       user: user,
     };
   }
@@ -63,17 +73,9 @@ export class AuthService {
     });
   }
 
-  async createAndUpdateRefreshToken(
-    newPayload: any,
-    response: Response,
-    userId: string,
-  ) {
+  async createAndUpdateRefreshToken(newPayload: any, userId: string) {
     const newRefreshToken = this.createToken(newPayload, 'JWT_REFRESH');
     await this.userService.updateUserRefreshToken(userId, newRefreshToken);
-    response.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      maxAge:
-        ms.sec(this.configService.get('jwt.JWT_REFRESH_EXPIRES_IN')) * 1000,
-    });
+    return newRefreshToken;
   }
 }
