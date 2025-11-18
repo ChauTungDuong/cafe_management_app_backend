@@ -1,5 +1,5 @@
 import { Exclude } from 'class-transformer';
-import { UserRole } from './dto/create-user-dto';
+import { Role } from '../auth/roles.enum';
 
 export class User {
   id: string;
@@ -7,7 +7,7 @@ export class User {
   email: string;
   @Exclude({ toPlainOnly: true })
   password: string;
-  role: UserRole;
+  role: Role;
   phone?: string;
   address?: string;
   avatar?: string;

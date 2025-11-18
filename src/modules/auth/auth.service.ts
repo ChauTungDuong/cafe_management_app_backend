@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import * as ms from 'ms-extended';
 import { access } from 'fs';
+import { UpdateUserDto } from '../users/dto/update-user-dto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -23,6 +24,7 @@ export class AuthService {
       iss: 'server',
       email: user.email,
       name: user.name,
+      role: user.role,
     };
 
     const newRefreshToken = await this.createAndUpdateRefreshToken(
@@ -53,6 +55,7 @@ export class AuthService {
       iss: 'server',
       name: user.name,
       email: user.email,
+      role: user.role,
     };
     const newRefreshToken = await this.createAndUpdateRefreshToken(
       newPayload,
@@ -77,5 +80,18 @@ export class AuthService {
     const newRefreshToken = this.createToken(newPayload, 'JWT_REFRESH');
     await this.userService.updateUserRefreshToken(userId, newRefreshToken);
     return newRefreshToken;
+  }
+
+  async getProfile(request): Promise<User> {
+    const user = await this.userService.findById(request.user.id);
+    return user;
+  }
+
+  async updateProfile(request, updateUserDto: UpdateUserDto) {
+    const updatedUser = await this.userService.updateUser(
+      request.user.id,
+      updateUserDto,
+    );
+    return updatedUser;
   }
 }

@@ -3,4 +3,5 @@ export interface AuthPayload {
   iss: string;
   email: string;
   name: string;
+  role: string;
 }

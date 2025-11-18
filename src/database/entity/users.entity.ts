@@ -11,8 +11,9 @@ import {
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Exclude } from 'class-transformer';
-import { UserRole } from 'src/modules/users/dto/create-user-dto';
+
 import { OrderEntity } from './order.entity';
+import { Role } from 'src/modules/auth/roles.enum';
 @Entity('users')
 export class UsersEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -43,8 +44,8 @@ export class UsersEntity {
   @Column({ nullable: true, default: '/public/defaults/default-avatar.png' })
   avatar: string;
 
-  @Column({ default: UserRole.STAFF })
-  role: UserRole;
+  @Column({ default: Role.STAFF })
+  role: Role;
 
   @Column({ default: true })
   isActive: boolean;

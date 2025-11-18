@@ -13,11 +13,8 @@ import {
 
 import { Transform } from 'class-transformer';
 import { PASSWORD_REGEX } from 'src/utils/constant';
+import { Role } from 'src/modules/auth/roles.enum';
 
-export enum UserRole {
-  ADMIN = 'admin',
-  STAFF = 'staff',
-}
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
@@ -93,8 +90,8 @@ export class CreateUserDto {
   @IsString()
   avatar?: string;
 
-  @IsEnum(UserRole)
-  role: UserRole;
+  @IsEnum(Role)
+  role: Role;
 
   @IsOptional()
   @IsBoolean()

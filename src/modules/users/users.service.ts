@@ -32,7 +32,8 @@ export class UsersService {
     if (!existsUser) {
       throw new Error('User not found');
     }
-    return this.usersRepository.update(id, updateUserDto);
+    await this.usersRepository.update(id, updateUserDto);
+    return this.usersRepository.findById(id);
   }
   async deleteUser(id: string) {
     const existsUser = await this.usersRepository.findById(id);

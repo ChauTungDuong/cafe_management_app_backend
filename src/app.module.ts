@@ -10,6 +10,8 @@ import { UsersModule } from './modules/users/users.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/auth.guard';
+import { RoleGuard } from './modules/auth/guards/roles.guard';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -31,6 +33,16 @@ import { AuthModule } from './modules/auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: 'APP_GUARD',
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: 'APP_GUARD',
+      useClass: RoleGuard,
+    },
+  ],
 })
 export class AppModule {}
