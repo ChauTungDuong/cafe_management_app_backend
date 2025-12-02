@@ -1,36 +1,35 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   DeleteDateColumn,
-  OneToMany,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { OrderEntity } from './order.entity';
-
-@Entity('tax')
-export class TaxEntity {
+@Entity('payments')
+export class PaymentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  percent: number;
+  @Column({ type: 'enum', enum: ['cash', 'QR', 'card'] })
+  method: string;
 
   @Column()
-  name: string;
+  amount: number;
 
-  @Column()
-  description: string;
+  @Column({ nullable: true })
+  qrCode: string;
 
-  @OneToMany(() => OrderEntity, (order) => order.tax)
-  orders: OrderEntity[];
+  @ManyToOne(() => OrderEntity, (order) => order.payments)
+  order: OrderEntity;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updateAt: Date;
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deletedAt?: Date;

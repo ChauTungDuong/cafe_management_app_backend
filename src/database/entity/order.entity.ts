@@ -14,6 +14,7 @@ import { OrderItemEntity } from './order_item.entity';
 import { UsersEntity } from './users.entity';
 import { TaxEntity } from './tax.entity';
 import { TableEntity } from './table.entity';
+import { PaymentEntity } from './payment.entity';
 @Entity('orders')
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -30,7 +31,10 @@ export class OrderEntity {
   status: 'pending' | 'paid' | 'cancelled';
 
   @Column()
-  QRcode: string;
+  discount: number;
+
+  @Column({ unique: true })
+  orderCode: string;
 
   @OneToMany(() => OrderItemEntity, (orderItem) => orderItem.order)
   orderItems: OrderItemEntity[];
@@ -46,6 +50,9 @@ export class OrderEntity {
   @ManyToOne(() => TableEntity, (table) => table.orders)
   @JoinColumn({ name: 'tableId' })
   table: TableEntity;
+
+  @OneToMany(() => PaymentEntity, (payment) => payment.order)
+  payments: PaymentEntity[];
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

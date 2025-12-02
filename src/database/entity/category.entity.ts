@@ -1,30 +1,23 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   DeleteDateColumn,
+  Entity,
   OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { OrderEntity } from './order.entity';
-
-@Entity('tax')
-export class TaxEntity {
+import { ItemEntity } from './item.entity';
+@Entity('categories')
+export class CategoryEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  percent: number;
-
-  @Column()
   name: string;
 
-  @Column()
-  description: string;
-
-  @OneToMany(() => OrderEntity, (order) => order.tax)
-  orders: OrderEntity[];
+  @OneToMany(() => ItemEntity, (item) => item.category)
+  items: ItemEntity[];
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

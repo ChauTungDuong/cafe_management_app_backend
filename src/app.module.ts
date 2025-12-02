@@ -12,6 +12,12 @@ import { join } from 'path';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/auth.guard';
 import { RoleGuard } from './modules/auth/guards/roles.guard';
+import { ItemModule } from './modules/item/item.module';
+import { OrderModule } from './modules/order/order.module';
+import { CategoryModule } from './modules/category/category.module';
+import { TaxModule } from './modules/tax/tax.module';
+import { TableModule } from './modules/table/table.module';
+import { PaymentModule } from './modules/payment/payment.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -31,6 +37,12 @@ import { RoleGuard } from './modules/auth/guards/roles.guard';
     }),
     UsersModule,
     AuthModule,
+    ItemModule,
+    OrderModule,
+    CategoryModule,
+    TaxModule,
+    TableModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

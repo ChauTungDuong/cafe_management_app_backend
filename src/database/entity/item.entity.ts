@@ -6,21 +6,20 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   OneToMany,
+  ManyToOne,
 } from 'typeorm';
 import { OrderItemEntity } from './order_item.entity';
+import { CategoryEntity } from './category.entity';
 
 @Entity('item')
 export class ItemEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: false })
   name: string;
 
-  @Column()
-  category: string; // coffee, tea, dessert, topping,..
-
-  @Column()
+  @Column({ nullable: false })
   price: number;
 
   @Column()
@@ -29,8 +28,15 @@ export class ItemEntity {
   @Column()
   description: string;
 
-  @Column()
-  status: string; // available, out of stock, discontinued
+  @Column({
+    type: 'enum',
+    default: 'available',
+    enum: ['available', 'out of stock', 'discontinued'],
+  })
+  status: string;
+
+  @ManyToOne(() => CategoryEntity, (category) => category.items)
+  category: CategoryEntity;
 
   @OneToMany(() => OrderItemEntity, (orderItem) => orderItem.item)
   orderItems: OrderItemEntity[];

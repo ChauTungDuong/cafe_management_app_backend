@@ -22,8 +22,12 @@ export class TableEntity {
   @Column()
   seat: number;
 
-  @Column()
-  status: string; // available, occupied, reserved
+  @Column({
+    type: 'enum',
+    enum: ['available', 'occupied', 'reserved'],
+    default: 'available',
+  })
+  status: 'available' | 'occupied' | 'reserved';
 
   @OneToMany(() => OrderEntity, (order) => order.table)
   orders: OrderEntity[];
