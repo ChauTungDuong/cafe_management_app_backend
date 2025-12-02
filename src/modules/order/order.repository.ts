@@ -97,9 +97,35 @@ export class OrderRepository {
     const totalAmount =
       subtotal * (1 + tax.percent / 100 - (orderData.discount || 0) / 100);
 
-    // Step 6: Generate order code
-    const orderNumber = await this.generateOrderNumber();
-    const orderCode = `ORD${String(orderNumber).padStart(4, '0')}`;
+    // Step 6: Generate unique order code with retry logic
+    let orderCode: string;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      const orderNumber = await this.generateOrderNumber();
+      orderCode = `ORD${String(orderNumber).padStart(4, '0')}`;
+
+      // Check if orderCode already exists
+      const exists = await this.orderRepository.findOne({
+        where: { orderCode },
+      });
+
+      if (!exists) {
+        break; // Unique orderCode found
+      }
+
+      attempts++;
+      // Wait a bit before retry to avoid race condition
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    if (attempts >= maxAttempts) {
+      // Fallback: use timestamp + random
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+      orderCode = `ORD${timestamp}${random}`;
+    }
 
     // Step 7: Create order entity
     const orderEntity = this.orderRepository.create({
@@ -258,7 +284,20 @@ export class OrderRepository {
   }
 
   async generateOrderNumber(): Promise<number> {
-    const orderNumber = await this.orderRepository.count();
-    return orderNumber + 1;
+    // Query to get the highest order number from orderCode
+    const lastOrder = await this.orderRepository
+      .createQueryBuilder('order')
+      .select('order.orderCode')
+      .orderBy('order.createdAt', 'DESC')
+      .limit(1)
+      .getOne();
+
+    if (!lastOrder || !lastOrder.orderCode) {
+      return 1;
+    }
+
+    // Extract number from "ORD0001" format
+    const lastNumber = parseInt(lastOrder.orderCode.replace('ORD', ''), 10);
+    return lastNumber + 1;
   }
 }
