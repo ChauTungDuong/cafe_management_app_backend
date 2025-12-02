@@ -54,8 +54,10 @@ export class OrderMapper {
           id: payment.id,
           amount: payment.amount,
           method: payment.method,
+          qrCode: payment.qrCode,
         }));
       }
+      domain.createdAt = entity.createdAt;
     }
     return domain;
   }
