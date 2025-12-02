@@ -10,7 +10,12 @@ export class ItemMapper {
     const domainItem = new Item();
     domainItem.id = raw.id;
     domainItem.name = raw.name;
-    domainItem.category = raw.category;
+    // Handle category with null check
+    domainItem.category = raw.category
+      ? {
+          name: raw.category.name,
+        }
+      : null;
     domainItem.price = raw.price;
     domainItem.amountLeft = raw.amountLeft;
     domainItem.description = raw.description;

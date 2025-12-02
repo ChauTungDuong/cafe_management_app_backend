@@ -30,6 +30,7 @@ export class ItemRepository {
       ...itemData,
       category: category,
     });
+    category.items.push(entity);
     const savedEntity = await this.itemRepository.save(entity);
     return ItemMapper.toDomain(savedEntity);
   }
@@ -37,12 +38,16 @@ export class ItemRepository {
   async findAll(filters: any): Promise<Item[]> {
     const items = await this.itemRepository.find({
       where: filters,
+      relations: ['category'], // Load category relation
     });
     return items.map((item) => ItemMapper.toDomain(item));
   }
 
   async findById(id: Item['id']): Promise<Item> {
-    const item = await this.itemRepository.findOne({ where: { id } });
+    const item = await this.itemRepository.findOne({
+      where: { id },
+      relations: ['category'], // Load category relation
+    });
     return ItemMapper.toDomain(item);
   }
 
