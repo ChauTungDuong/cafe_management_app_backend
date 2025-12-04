@@ -20,6 +20,12 @@ export class ItemMapper {
     domainItem.amountLeft = raw.amountLeft;
     domainItem.description = raw.description;
     domainItem.status = raw.status;
+    if (raw.image) {
+      domainItem.image = raw.image;
+    }
+    if (raw.imagePublicId) {
+      domainItem.imagePublicId = raw.imagePublicId;
+    }
     return domainItem;
   }
 

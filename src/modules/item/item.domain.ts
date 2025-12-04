@@ -7,6 +7,8 @@ export class Item {
   price: number;
   amountLeft: number;
   description: string;
+  image: string;
+  imagePublicId?: string;
   status: string;
   createdAt?: Date;
   updatedAt?: Date;

@@ -21,8 +21,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // sử dụng để loại bỏ các thuộc tính được đánh dấu bằng @Exclude trong class domain
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  // Global interceptors
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(app.get(Reflector)), // Loại bỏ thuộc tính @Exclude
+  );
+
   await app.listen(process.env.PORT || 3000);
 }
 bootstrap();

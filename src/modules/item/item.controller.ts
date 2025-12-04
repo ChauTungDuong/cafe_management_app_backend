@@ -7,6 +7,8 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { CreateItemDto } from './dto/create-item.dto';
 import { ItemService } from './item.service';
@@ -14,6 +16,8 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { BulkCreateItemDto } from './dto/bulk-create-item.dto';
 import { Public, Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
 
 @Controller('items')
 export class ItemController {
@@ -21,8 +25,12 @@ export class ItemController {
 
   @Roles(Role.ADMIN, Role.STAFF)
   @Post()
-  createItem(@Body() createItemDto: CreateItemDto) {
-    return this.itemService.createItem(createItemDto);
+  @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
+  createItem(
+    @Body() createItemDto: CreateItemDto,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    return this.itemService.createItem(createItemDto, image);
   }
   @Roles(Role.ADMIN)
   @Post('bulk')
@@ -44,8 +52,13 @@ export class ItemController {
 
   @Roles(Role.ADMIN, Role.STAFF)
   @Patch(':id')
-  updateItem(@Param('id') id: string, @Body() updateItemDto: UpdateItemDto) {
-    return this.itemService.updateItem(id, updateItemDto);
+  @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
+  updateItem(
+    @Param('id') id: string,
+    @Body() updateItemDto: UpdateItemDto,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    return this.itemService.updateItem(id, updateItemDto, image);
   }
 
   @Roles(Role.ADMIN, Role.STAFF)

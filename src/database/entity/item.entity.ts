@@ -25,8 +25,14 @@ export class ItemEntity {
   @Column()
   amountLeft: number;
 
-  @Column()
+  @Column({ nullable: true })
   description: string;
+
+  @Column({ nullable: true })
+  image?: string;
+
+  @Column({ nullable: true })
+  imagePublicId?: string;
 
   @Column({
     type: 'enum',
@@ -41,12 +47,12 @@ export class ItemEntity {
   @OneToMany(() => OrderItemEntity, (orderItem) => orderItem.item)
   orderItems: OrderItemEntity[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
-  @DeleteDateColumn()
-  deletedAt: Date;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt?: Date;
 }

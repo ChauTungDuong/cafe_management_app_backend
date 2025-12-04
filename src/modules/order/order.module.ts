@@ -12,6 +12,7 @@ import { OrderRepository } from './order.repository';
 import { ItemRepository } from '../item/item.repository';
 import { CategoryEntity } from 'src/database/entity/category.entity';
 import { CategoryRepository } from '../category/category.repository';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CategoryRepository } from '../category/category.repository';
       OrderItemEntity,
       CategoryEntity,
     ]),
+    CloudinaryModule,
   ],
   controllers: [OrderController],
   providers: [

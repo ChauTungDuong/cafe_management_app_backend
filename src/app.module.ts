@@ -18,12 +18,13 @@ import { CategoryModule } from './modules/category/category.module';
 import { TaxModule } from './modules/tax/tax.module';
 import { TableModule } from './modules/table/table.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import cloudinaryConfig from './config/cloudinary.config';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, cloudinaryConfig],
     }),
     TypeOrmModule.forRootAsync({
       useFactory: databaseConfig,

@@ -1,23 +1,31 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
-  ValidateNested,
 } from 'class-validator';
-import { CreateCategoryDto } from 'src/modules/category/dto/create-category.dto';
 
 export class CreateItemDto {
   @IsNotEmpty()
   @IsString()
   name: string;
 
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   @IsNotEmpty()
-  @ValidateNested()
-  @Type(() => CreateCategoryDto)
-  category: CreateCategoryDto;
+  @IsObject()
+  category: { name: string };
 
   @IsNotEmpty()
   @Type(() => Number)

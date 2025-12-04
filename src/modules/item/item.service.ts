@@ -3,13 +3,14 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { ItemRepository } from './item.repository';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { BulkCreateItemDto } from './dto/bulk-create-item.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class ItemService {
   constructor(private itemRepository: ItemRepository) {}
 
-  createItem(createItemDto: CreateItemDto) {
-    return this.itemRepository.create(createItemDto);
+  createItem(createItemDto: CreateItemDto, image: Express.Multer.File) {
+    return this.itemRepository.create(createItemDto, image);
   }
 
   /**
@@ -27,8 +28,12 @@ export class ItemService {
     return this.itemRepository.findById(id);
   }
 
-  updateItem(id: string, updateItemDto: UpdateItemDto) {
-    return this.itemRepository.update(id, updateItemDto);
+  updateItem(
+    id: string,
+    updateItemDto: UpdateItemDto,
+    file: Express.Multer.File,
+  ) {
+    return this.itemRepository.update(id, updateItemDto, file);
   }
 
   deleteItem(id: string) {

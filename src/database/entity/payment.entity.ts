@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -22,7 +23,13 @@ export class PaymentEntity {
   @Column({ nullable: true })
   qrCode: string;
 
-  @ManyToOne(() => OrderEntity, (order) => order.payments)
+  @Column({ nullable: true })
+  orderCode: string;
+
+  @ManyToOne(() => OrderEntity, (order) => order.payments, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'orderId' })
   order: OrderEntity;
 
   @CreateDateColumn({ type: 'timestamp' })
