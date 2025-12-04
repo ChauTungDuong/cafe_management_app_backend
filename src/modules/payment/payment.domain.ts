@@ -3,6 +3,7 @@ export class Payment {
   method: string;
   amount: number;
   qrCode: string;
+  qrCodePublicId?: string;
   orderCode: string;
   createdAt?: Date;
   updatedAt?: Date;

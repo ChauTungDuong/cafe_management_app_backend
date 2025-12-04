@@ -24,6 +24,9 @@ export class PaymentEntity {
   qrCode: string;
 
   @Column({ nullable: true })
+  qrCodePublicId: string;
+
+  @Column({ nullable: true })
   orderCode: string;
 
   @ManyToOne(() => OrderEntity, (order) => order.payments, {

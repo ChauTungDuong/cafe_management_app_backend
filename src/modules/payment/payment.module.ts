@@ -5,9 +5,13 @@ import { PaymentEntity } from 'src/database/entity/payment.entity';
 import { PaymentController } from './payment.controller';
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { PaymentService } from './payment.service';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PaymentEntity, OrderEntity])],
+  imports: [
+    TypeOrmModule.forFeature([PaymentEntity, OrderEntity]),
+    CloudinaryModule,
+  ],
   controllers: [PaymentController],
   providers: [PaymentRepository, PaymentService],
   exports: [PaymentRepository],

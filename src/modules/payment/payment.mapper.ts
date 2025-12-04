@@ -11,7 +11,8 @@ export class PaymentMapper {
     domain.amount = entity.amount;
     domain.method = entity.method;
     domain.qrCode = entity.qrCode;
-    domain.orderCode = entity.order?.orderCode;
+    domain.qrCodePublicId = entity.qrCodePublicId;
+    domain.orderCode = entity.orderCode || entity.order?.orderCode;
     return domain;
   }
 
@@ -26,6 +27,8 @@ export class PaymentMapper {
     entity.amount = domain.amount;
     entity.method = domain.method;
     entity.qrCode = domain.qrCode;
+    entity.qrCodePublicId = domain.qrCodePublicId;
+    entity.orderCode = domain.orderCode;
     return entity;
   }
 }
