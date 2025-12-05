@@ -7,6 +7,7 @@ import { OrderEntity } from 'src/database/entity/order.entity';
 import { PaymentService } from './payment.service';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { WebhookEntity } from 'src/database/entity/webhook.entity';
+import { PaymentGateway } from './payment.gateway';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { WebhookEntity } from 'src/database/entity/webhook.entity';
     CloudinaryModule,
   ],
   controllers: [PaymentController],
-  providers: [PaymentRepository, PaymentService],
-  exports: [PaymentRepository],
+  providers: [PaymentRepository, PaymentService, PaymentGateway],
+  exports: [PaymentRepository, PaymentGateway],
 })
 export class PaymentModule {}

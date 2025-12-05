@@ -48,17 +48,18 @@ export class OrderMapper {
           status: item.item.status,
         },
       }));
-
-      if (entity.payments) {
-        domain.payments = entity.payments.map((payment) => ({
-          id: payment.id,
-          amount: payment.amount,
-          method: payment.method,
-          qrCode: payment.qrCode,
-        }));
-      }
-      domain.createdAt = entity.createdAt;
     }
+
+    if (entity.payments) {
+      domain.payments = entity.payments.map((payment) => ({
+        id: payment.id,
+        amount: payment.amount,
+        method: payment.method,
+        qrCode: payment.qrCode,
+      }));
+    }
+
+    domain.createdAt = entity.createdAt;
     return domain;
   }
 

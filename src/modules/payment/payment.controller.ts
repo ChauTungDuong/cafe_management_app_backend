@@ -52,6 +52,13 @@ export class PaymentController {
     return this.paymentService.deletePayment(id);
   }
 
+  // Check payment status by orderCode (for polling)
+  @Get('status/:orderCode')
+  @Roles(Role.ADMIN, Role.STAFF)
+  checkPaymentStatus(@Param('orderCode') orderCode: string) {
+    return this.paymentService.checkPaymentStatus(orderCode);
+  }
+
   // Webhook from SePay
   @Public()
   @Post('hook')

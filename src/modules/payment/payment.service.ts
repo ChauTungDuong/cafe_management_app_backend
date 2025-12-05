@@ -25,6 +25,10 @@ export class PaymentService {
     return this.paymentRepository.delete(id);
   }
 
+  checkPaymentStatus(orderCode: string) {
+    return this.paymentRepository.checkPaymentStatus(orderCode);
+  }
+
   handlePaymentHook(confirmPaymentDto: ConfirmPaymentDto) {
     return this.paymentRepository.processPaymentConfirmation(confirmPaymentDto);
   }

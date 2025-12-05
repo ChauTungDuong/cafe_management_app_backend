@@ -12,6 +12,7 @@ import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import * as crc from 'crc';
 import { WebhookEntity } from 'src/database/entity/webhook.entity';
+import { PaymentGateway } from './payment.gateway';
 
 @Injectable()
 export class PaymentRepository {
@@ -23,6 +24,7 @@ export class PaymentRepository {
     @InjectRepository(WebhookEntity)
     private webhookRepository: Repository<WebhookEntity>,
     private cloudinaryService: CloudinaryService,
+    private paymentGateway: PaymentGateway,
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
@@ -88,11 +90,14 @@ export class PaymentRepository {
       paymentData.qrCodePublicId = uploadResult.public_id;
     }
 
-    // Sử dụng mapper để tạo entity từ domain data
-    const paymentEntity = PaymentMapper.toEntity(paymentData as Payment);
-
-    // Gán order relationship (mapper không làm điều này)
-    paymentEntity.order = order;
+    const paymentEntity = this.paymentRepository.create({
+      method: paymentData.method,
+      amount: paymentData.amount,
+      qrCode: paymentData.qrCode,
+      qrCodePublicId: paymentData.qrCodePublicId,
+      orderCode: paymentData.orderCode,
+      order: order,
+    });
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
 
@@ -165,9 +170,30 @@ export class PaymentRepository {
     return payment ? PaymentMapper.toDomain(payment) : null;
   }
 
-  /**
-   * Generate VietQR string chuẩn EMVCo với Virtual Account
-   **/
+  async checkPaymentStatus(orderCode: string): Promise<{
+    orderCode: string;
+    orderStatus: string;
+    isPaid: boolean;
+    payment: Payment | null;
+  }> {
+    const order = await this.orderRepository.findOne({
+      where: { orderCode },
+    });
+
+    if (!order) {
+      throw new BadRequestException(`Order not found: ${orderCode}`);
+    }
+
+    const payment = await this.findByOrderCode(orderCode);
+
+    return {
+      orderCode: order.orderCode,
+      orderStatus: order.status,
+      isPaid: order.status === 'paid',
+      payment: payment,
+    };
+  }
+
   private generateVietQRString(
     bankBin: string,
     virtualAccount: string,
@@ -290,6 +316,12 @@ export class PaymentRepository {
 
       await this.markWebhookProcessed(savedWebhook.id, true);
 
+      this.paymentGateway.notifyPaymentSuccess(orderCode, {
+        amount: paymentHook.transferAmount,
+        transactionDate: paymentHook.transactionDate,
+        referenceCode: paymentHook.referenceCode,
+      });
+
       return {
         success: true,
         orderCode: orderCode,
@@ -298,6 +330,11 @@ export class PaymentRepository {
       };
     } catch (error) {
       await this.markWebhookProcessed(savedWebhook.id, false, error.message);
+
+      if (orderCode) {
+        this.paymentGateway.notifyPaymentFailed(orderCode, error.message);
+      }
+
       throw error;
     }
   }
