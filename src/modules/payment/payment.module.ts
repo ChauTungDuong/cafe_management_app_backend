@@ -6,10 +6,11 @@ import { PaymentController } from './payment.controller';
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { PaymentService } from './payment.service';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { WebhookEntity } from 'src/database/entity/webhook.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PaymentEntity, OrderEntity]),
+    TypeOrmModule.forFeature([PaymentEntity, OrderEntity, WebhookEntity]),
     CloudinaryModule,
   ],
   controllers: [PaymentController],

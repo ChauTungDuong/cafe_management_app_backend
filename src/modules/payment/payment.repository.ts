@@ -11,6 +11,8 @@ import { PaymentMapper } from './payment.mapper';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import * as crc from 'crc';
+import { WebhookEntity } from 'src/database/entity/webhook.entity';
+
 @Injectable()
 export class PaymentRepository {
   constructor(
@@ -18,6 +20,8 @@ export class PaymentRepository {
     private paymentRepository: Repository<PaymentEntity>,
     @InjectRepository(OrderEntity)
     private orderRepository: Repository<OrderEntity>,
+    @InjectRepository(WebhookEntity)
+    private webhookRepository: Repository<WebhookEntity>,
     private cloudinaryService: CloudinaryService,
   ) {}
 
@@ -52,13 +56,13 @@ export class PaymentRepository {
 
     if (createPaymentDto.method === 'QR') {
       const bankBin = process.env.BANK_BIN;
-      const accountNumber = process.env.BANK_ACCOUNT;
+      const virtualAccount = process.env.VIRTUAL_ACCOUNT; // Tài khoản ảo từ SePay
       const amount = order.totalAmount;
       const description = `${process.env.BASE_INFO || 'KAFEIN'}${order.orderCode}`;
 
       const qrString = this.generateVietQRString(
         bankBin,
-        accountNumber,
+        virtualAccount,
         amount,
         description,
       );
@@ -145,11 +149,13 @@ export class PaymentRepository {
         console.warn('Failed to delete QR code from Cloudinary:', error);
       }
     }
+
     if (payment.order) {
       payment.order.status = 'pending';
       await this.orderRepository.save(payment.order);
     }
-    await this.paymentRepository.softRemove({ id });
+
+    await this.paymentRepository.softRemove(payment);
   }
 
   async findByOrderCode(orderCode: string): Promise<Payment | null> {
@@ -159,9 +165,12 @@ export class PaymentRepository {
     return payment ? PaymentMapper.toDomain(payment) : null;
   }
 
+  /**
+   * Generate VietQR string chuẩn EMVCo với Virtual Account
+   **/
   private generateVietQRString(
     bankBin: string,
-    accountNumber: string,
+    virtualAccount: string,
     amount: number,
     description: string,
   ): string {
@@ -172,9 +181,11 @@ export class PaymentRepository {
     const guid = 'A000000727'; // VietQR GUID
     const guidField = `0010${guid}`; // Tag 00, Length 10
 
-    // Tag 01: Beneficiary Organization = Bank BIN (Tag 00) + Account Number (Tag 01)
+    // Tag 01: Beneficiary Organization
+    // - Tag 00: Bank BIN (6 digits)
+    // - Tag 01: Virtual Account Number
     const bankBinField = `0006${bankBin}`;
-    const accountField = `01${String(accountNumber.length).padStart(2, '0')}${accountNumber}`;
+    const accountField = `01${String(virtualAccount.length).padStart(2, '0')}${virtualAccount}`;
     const beneficiaryValue = `${bankBinField}${accountField}`;
     const beneficiaryField = `01${String(beneficiaryValue.length).padStart(2, '0')}${beneficiaryValue}`;
 
@@ -222,7 +233,92 @@ export class PaymentRepository {
     return finalQR;
   }
 
-  async processPaymentConfirmation(confirmPaymentDto: ConfirmPaymentDto) {
-    // later implement
+  async processPaymentConfirmation(paymentHook: ConfirmPaymentDto) {
+    console.log('📥 Webhook received:', JSON.stringify(paymentHook));
+
+    const orderCode = this.extractOrderCode(paymentHook.content);
+
+    const webhook = this.webhookRepository.create({
+      webhookId: paymentHook.id?.toString() || paymentHook.referenceCode,
+      orderCode: orderCode,
+      rawData: paymentHook,
+      processed: false,
+    });
+    const savedWebhook = await this.webhookRepository.save(webhook);
+
+    try {
+      if (paymentHook.transferType !== 'in') {
+        throw new BadRequestException('Transfer type is not "in"');
+      }
+
+      if (paymentHook.subAccount !== process.env.VIRTUAL_ACCOUNT) {
+        console.log(' Virtual account mismatch');
+        throw new BadRequestException('Virtual account does not match');
+      }
+
+      if (!orderCode) {
+        console.log(
+          ' Cannot extract order code from content:',
+          paymentHook.content,
+        );
+        throw new BadRequestException('Cannot extract order code from content');
+      }
+      console.log('Extracted order code:', orderCode);
+
+      const payment = await this.findByOrderCode(orderCode);
+      if (!payment) {
+        throw new BadRequestException(
+          `Payment not found for order: ${orderCode}`,
+        );
+      }
+
+      if (paymentHook.transferAmount < payment.amount) {
+        throw new BadRequestException(
+          `Amount mismatch. Expected: ${payment.amount}, Received: ${paymentHook.transferAmount}`,
+        );
+      }
+
+      const order = await this.orderRepository.findOne({
+        where: { orderCode: payment.orderCode },
+      });
+      if (!order) {
+        throw new BadRequestException(`Order not found: ${payment.orderCode}`);
+      }
+
+      order.status = 'paid';
+      await this.orderRepository.save(order);
+
+      await this.markWebhookProcessed(savedWebhook.id, true);
+
+      return {
+        success: true,
+        orderCode: orderCode,
+        amount: paymentHook.transferAmount,
+        message: 'Payment confirmed successfully',
+      };
+    } catch (error) {
+      await this.markWebhookProcessed(savedWebhook.id, false, error.message);
+      throw error;
+    }
+  }
+
+  private async markWebhookProcessed(
+    webhookId: number,
+    success: boolean,
+    errorMessage?: string,
+  ): Promise<void> {
+    await this.webhookRepository.update(webhookId, {
+      processed: success,
+      processedAt: new Date(),
+      errorMessage: errorMessage || null,
+    });
+  }
+
+  private extractOrderCode(content: string): string | null {
+    if (!content) return null;
+
+    const start = content.indexOf('ORD');
+    const orderCode = content.substring(start, start + 15);
+    return orderCode || null;
   }
 }

@@ -3,6 +3,9 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
+  NotAcceptableException,
   Param,
   Patch,
   Post,
@@ -10,7 +13,7 @@ import {
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
 import { PaymentService } from './payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { Roles } from '../auth/roles.decorator';
+import { Public, Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 
@@ -49,9 +52,20 @@ export class PaymentController {
     return this.paymentService.deletePayment(id);
   }
 
-  // route for webhook from sepay
+  // Webhook from SePay
+  @Public()
   @Post('hook')
-  paymentHook(@Body() confirmPaymentDto: ConfirmPaymentDto) {
-    return this.paymentService.handlePaymentHook(confirmPaymentDto);
+  async paymentHook(@Body() confirmPaymentDto: ConfirmPaymentDto) {
+    try {
+      const result =
+        await this.paymentService.handlePaymentHook(confirmPaymentDto);
+      return {
+        success: true,
+        message: 'Payment confirmed successfully',
+        data: result,
+      };
+    } catch (error) {
+      throw new NotAcceptableException('Payment confirmation failed');
+    }
   }
 }
