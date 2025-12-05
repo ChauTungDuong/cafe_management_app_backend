@@ -101,15 +101,22 @@ export class PaymentRepository {
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
 
-    const allPayments = await this.paymentRepository.find({
-      where: { order: { id: order.id } },
-    });
+    console.log('✅ Payment saved:', savedPayment.id, 'for order:', order.id);
 
-    const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    if (paymentData.method !== 'QR') {
+      const allPayments = await this.paymentRepository.find({
+        where: { order: { id: order.id } },
+      });
 
-    if (totalPaid >= order.totalAmount) {
-      order.status = 'paid';
-      await this.orderRepository.save(order);
+      const totalPaid = allPayments.reduce(
+        (sum, p) => sum + Number(p.amount),
+        0,
+      );
+
+      if (totalPaid >= order.totalAmount) {
+        order.status = 'paid';
+        await this.orderRepository.save(order);
+      }
     }
 
     return PaymentMapper.toDomain(savedPayment);
