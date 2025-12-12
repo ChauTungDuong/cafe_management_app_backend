@@ -19,6 +19,8 @@ import { TaxModule } from './modules/tax/tax.module';
 import { TableModule } from './modules/table/table.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import cloudinaryConfig from './config/cloudinary.config';
+import { RecipeModule } from './modules/recipe/recipe.module';
+import { IngredientModule } from './modules/ingredient/ingredient.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -44,6 +46,8 @@ import cloudinaryConfig from './config/cloudinary.config';
     TaxModule,
     TableModule,
     PaymentModule,
+    IngredientModule,
+    RecipeModule,
   ],
   controllers: [AppController],
   providers: [

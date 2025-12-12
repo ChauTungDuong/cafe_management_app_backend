@@ -11,13 +11,13 @@ export class WebhookEntity {
   id: number;
 
   @Column({ nullable: true })
-  webhookId: string; // ID hoặc referenceCode từ SePay
+  webhookId: string;
 
   @Column({ nullable: true })
-  orderCode: string; // Extracted order code
+  orderCode: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  rawData: Record<string, any>; // Toàn bộ payload từ webhook
+  rawData: Record<string, any>;
 
   @Column({ default: false })
   processed: boolean;

@@ -5,7 +5,6 @@ export class Item {
   name: string;
   category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
   price: number;
-  amountLeft: number;
   description: string;
   image: string;
   imagePublicId?: string;

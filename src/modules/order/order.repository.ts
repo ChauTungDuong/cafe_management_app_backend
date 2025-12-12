@@ -9,6 +9,8 @@ import { ItemEntity } from 'src/database/entity/item.entity';
 import { OrderItemEntity } from 'src/database/entity/order_item.entity';
 import { Order } from './order.domain';
 import { OrderMapper } from './order.mapper';
+import { IngredientEntity } from 'src/database/entity/ingredient.entity';
+import { RecipeEntity } from 'src/database/entity/recipe.entity';
 
 @Injectable()
 export class OrderRepository {
@@ -25,6 +27,10 @@ export class OrderRepository {
     private itemRepository: Repository<ItemEntity>,
     @InjectRepository(OrderItemEntity)
     private orderItemRepository: Repository<OrderItemEntity>,
+    @InjectRepository(IngredientEntity)
+    private ingredientRepository: Repository<IngredientEntity>,
+    @InjectRepository(RecipeEntity)
+    private recipeRepository: Repository<RecipeEntity>,
   ) {}
 
   async create(
@@ -55,70 +61,120 @@ export class OrderRepository {
       throw new BadRequestException('Order must have at least one item');
     }
 
-    let subtotal = 0;
-    const itemsToCreate: Array<{ item: ItemEntity; amount: number }> = [];
+    // use transaction and manager
+    const result = await this.orderRepository.manager.transaction(
+      async (manager) => {
+        let subtotal = 0;
+        const itemsToCreate: Array<{ item: ItemEntity; amount: number }> = [];
 
-    for (const orderItemData of orderData.orderItems) {
-      const item = await this.itemRepository.findOne({
-        where: { id: orderItemData.item.id },
-      });
-      if (!item) {
-        throw new BadRequestException(
-          `Item with id ${orderItemData.item.id} not found`,
-        );
-      }
+        for (const orderItemData of orderData.orderItems) {
+          const item = await manager.getRepository(ItemEntity).findOne({
+            where: { id: orderItemData.item.id },
+            relations: [
+              'recipes',
+              'recipes.recipeIngredients',
+              'recipes.recipeIngredients.ingredient',
+            ],
+          });
+          if (!item) {
+            throw new BadRequestException(
+              `Item with id ${orderItemData.item.id} not found`,
+            );
+          }
 
-      if (orderItemData.amount <= 0) {
-        throw new BadRequestException('Item amount must be greater than 0');
-      }
+          const itemRecipes = item.recipes;
+          if (itemRecipes && itemRecipes.length > 0) {
+            for (const recipe of itemRecipes) {
+              if (
+                recipe.recipeIngredients &&
+                recipe.recipeIngredients.length > 0
+              ) {
+                for (const recipeIngredient of recipe.recipeIngredients) {
+                  const ingredient = recipeIngredient.ingredient;
+                  const required =
+                    recipeIngredient.amount * orderItemData.amount;
+                  if (ingredient.amountLeft < required) {
+                    throw new BadRequestException(
+                      `Not enough ingredient ${ingredient.name} for item ${item.name}`,
+                    );
+                  }
+                  // decrement and save via transactional manager
+                  ingredient.amountLeft =
+                    Number(ingredient.amountLeft) - Number(required);
+                  await manager
+                    .getRepository(IngredientEntity)
+                    .save(ingredient);
+                }
+              }
+            }
+          }
 
-      if (item.amountLeft < orderItemData.amount) {
-        throw new BadRequestException(
-          `Item "${item.name}" has insufficient stock. Available: ${item.amountLeft}, requested: ${orderItemData.amount}`,
-        );
-      }
+          if (orderItemData.amount <= 0) {
+            throw new BadRequestException('Item amount must be greater than 0');
+          }
 
-      const lineTotal = orderItemData.amount * item.price;
-      subtotal += lineTotal;
+          const lineTotal = orderItemData.amount * item.price;
+          subtotal += lineTotal;
 
-      itemsToCreate.push({ item, amount: orderItemData.amount });
-    }
+          // also persist potential item stock changes
+          await manager.getRepository(ItemEntity).save(item);
 
-    const totalAmount =
-      subtotal * (1 + tax.percent / 100 - (orderData.discount || 0) / 100);
+          itemsToCreate.push({ item, amount: orderItemData.amount });
+        }
 
-    const timestamp = Date.now().toString().slice(-8); // Last 8 digits
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const orderCode = `ORD${timestamp}${random}`;
+        const totalAmount =
+          subtotal *
+          (1 +
+            (
+              await manager
+                .getRepository(TaxEntity)
+                .findOne({ where: { id: orderData.tax.id } })
+            ).percent /
+              100 -
+            (orderData.discount || 0) / 100);
 
-    const orderEntity = this.orderRepository.create({
-      orderCode: orderCode,
-      totalAmount: Math.round(totalAmount),
-      discount: orderData.discount || 0,
-      status: orderData.status || 'pending',
-      createdBy: createdByUser,
-      tax: tax,
-      table: table,
-    });
+        const timestamp = Date.now().toString().slice(-8); // Last 8 digits
+        const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const orderCode = `ORD${timestamp}${random}`;
 
-    const savedOrder = await this.orderRepository.save(orderEntity);
+        const orderEntity = manager.getRepository(OrderEntity).create({
+          orderCode: orderCode,
+          totalAmount: Math.round(totalAmount),
+          discount: orderData.discount || 0,
+          status: orderData.status || 'pending',
+          createdBy: await manager
+            .getRepository(UsersEntity)
+            .findOne({ where: { id: orderData.createdBy.id } }),
+          tax: await manager
+            .getRepository(TaxEntity)
+            .findOne({ where: { id: orderData.tax.id } }),
+          table: await manager
+            .getRepository(TableEntity)
+            .findOne({ where: { id: orderData.table.id } }),
+        });
 
-    const orderItems: OrderItemEntity[] = [];
-    for (const { item, amount } of itemsToCreate) {
-      const orderItem = this.orderItemRepository.create({
-        amount: amount,
-        item: item,
-        order: savedOrder,
-      });
-      orderItems.push(orderItem);
+        const savedOrder = await manager
+          .getRepository(OrderEntity)
+          .save(orderEntity);
 
-      item.amountLeft -= amount;
-      await this.itemRepository.save(item);
-    }
-    await this.orderItemRepository.save(orderItems);
+        const orderItems: OrderItemEntity[] = [];
+        for (const { item, amount } of itemsToCreate) {
+          const orderItem = manager.getRepository(OrderItemEntity).create({
+            amount: amount,
+            item: item,
+            order: savedOrder,
+          });
+          orderItems.push(orderItem);
+        }
+        await manager.getRepository(OrderItemEntity).save(orderItems);
 
+        return savedOrder;
+      },
+    );
+
+    // After transaction completes, fetch the complete order with relations
     const completeOrder = await this.orderRepository.findOne({
-      where: { id: savedOrder.id },
+      where: { id: result.id },
       relations: [
         'createdBy',
         'tax',
@@ -179,7 +235,6 @@ export class OrderRepository {
       throw new BadRequestException('Order not found');
     }
 
-    // Update basic fields
     if (updateData.totalAmount !== undefined) {
       existingOrder.totalAmount = updateData.totalAmount;
     }
@@ -190,7 +245,6 @@ export class OrderRepository {
       existingOrder.discount = updateData.discount;
     }
 
-    // Update relationships if provided
     if (updateData.createdBy) {
       const user = await this.usersRepository.findOne({
         where: { id: updateData.createdBy.id },

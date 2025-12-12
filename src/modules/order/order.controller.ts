@@ -23,21 +23,25 @@ export class OrderController {
     return this.orderService.createOrder(createOrderDto);
   }
 
+  @Roles(Role.ADMIN, Role.STAFF)
   @Get()
   getAllOrders(@Query() filters?: any) {
     return this.orderService.getAllOrders(filters);
   }
 
+  @Roles(Role.ADMIN, Role.STAFF)
   @Get(':id')
   getOrderById(@Param('id') id: string) {
     return this.orderService.getOrderById(id);
   }
 
+  @Roles(Role.ADMIN, Role.STAFF)
   @Patch(':id')
   updateOrder(@Param('id') id: string, @Body() updateData: any) {
     return this.orderService.updateOrder(id, updateData);
   }
 
+  @Roles(Role.ADMIN, Role.STAFF)
   @Delete(':id')
   deleteOrder(@Param('id') id: string) {
     return this.orderService.deleteOrder(id);

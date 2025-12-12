@@ -16,6 +16,6 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
   ],
   controllers: [ItemController],
   providers: [ItemService, ItemRepository],
-  exports: [],
+  exports: [ItemService, ItemRepository],
 })
 export class ItemModule {}

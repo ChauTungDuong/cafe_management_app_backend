@@ -13,6 +13,8 @@ import { ItemRepository } from '../item/item.repository';
 import { CategoryEntity } from 'src/database/entity/category.entity';
 import { CategoryRepository } from '../category/category.repository';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { IngredientEntity } from 'src/database/entity/ingredient.entity';
+import { RecipeEntity } from 'src/database/entity/recipe.entity';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
       ItemEntity,
       OrderItemEntity,
       CategoryEntity,
+      IngredientEntity,
+      RecipeEntity,
     ]),
     CloudinaryModule,
   ],

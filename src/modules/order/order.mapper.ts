@@ -1,6 +1,5 @@
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { Order } from './order.domain';
-import { OrderItemEntity } from 'src/database/entity/order_item.entity';
 
 export class OrderMapper {
   static toDomain(entity: OrderEntity): Order {
@@ -44,7 +43,6 @@ export class OrderMapper {
           id: item.item.id,
           name: item.item.name,
           price: item.item.price,
-          amountLeft: item.item.amountLeft,
           status: item.item.status,
         },
       }));
@@ -74,11 +72,7 @@ export class OrderMapper {
     entity.status = domain.status;
     entity.discount = domain.discount;
     entity.orderCode = domain.orderCode;
-
-    // Note: Relationships (createdBy, tax, table, orderItems) should be
-    // assigned by Repository/Service layer after fetching actual entities
-    // Mapper only handles structure conversion, not data fetching
-
+    // others is set in repository
     return entity;
   }
 }

@@ -10,6 +10,8 @@ import {
 } from 'typeorm';
 import { OrderItemEntity } from './order_item.entity';
 import { CategoryEntity } from './category.entity';
+import { RecipeEntity } from './recipe.entity';
+import { IngredientEntity } from './ingredient.entity';
 
 @Entity('item')
 export class ItemEntity {
@@ -21,9 +23,6 @@ export class ItemEntity {
 
   @Column({ nullable: false })
   price: number;
-
-  @Column()
-  amountLeft: number;
 
   @Column({ nullable: true })
   description: string;
@@ -46,6 +45,9 @@ export class ItemEntity {
 
   @OneToMany(() => OrderItemEntity, (orderItem) => orderItem.item)
   orderItems: OrderItemEntity[];
+
+  @OneToMany(() => RecipeEntity, (recipe) => recipe.item)
+  recipes: RecipeEntity[];
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
