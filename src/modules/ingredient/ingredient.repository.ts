@@ -63,10 +63,12 @@ export class IngredientRepository {
     );
   }
   async delete(id: Ingredient['id']) {
-    const ingredient = await this.findById(id);
-    if (!ingredient) {
+    const ingredientEntity = await this.ingredientRepository.findOne({
+      where: { id },
+    });
+    if (!ingredientEntity) {
       throw new NotFoundException('Ingredient not found');
     }
-    await this.ingredientRepository.softRemove(ingredient);
+    await this.ingredientRepository.softRemove(ingredientEntity);
   }
 }

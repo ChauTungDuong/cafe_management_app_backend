@@ -30,6 +30,8 @@ export class IngredientMapper {
     entity.name = domain.name;
     entity.amountLeft = domain.amountLeft;
     entity.measureUnit = domain.measureUnit;
+    entity.image = domain.image;
+    entity.imagePublicId = domain.imagePublicId;
     return entity;
   }
 }
