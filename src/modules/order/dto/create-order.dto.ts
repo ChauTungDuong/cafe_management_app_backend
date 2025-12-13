@@ -1,14 +1,20 @@
-import { IsArray, IsEnum, IsNumber, IsObject, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateOrderDto {
-  @IsNumber()
-  discount: number;
-
   @IsString()
   createdBy: string;
 
-  @IsString()
-  taxId: string;
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  taxDiscountIds?: string[];
 
   @IsString()
   tableId: string;

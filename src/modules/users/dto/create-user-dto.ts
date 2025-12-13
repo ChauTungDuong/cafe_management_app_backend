@@ -90,6 +90,10 @@ export class CreateUserDto {
   @IsString()
   avatar?: string;
 
+  @IsOptional()
+  @IsString()
+  avatarPublicId?: string;
+
   @IsEnum(Role)
   role: Role;
 

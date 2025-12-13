@@ -9,6 +9,8 @@ import {
   Get,
   Header,
   Patch,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local.guard';
@@ -18,6 +20,8 @@ import { Request } from 'express';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public, Roles } from './roles.decorator';
 import { UpdateUserDto } from '../users/dto/update-user-dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -41,7 +45,15 @@ export class AuthController {
   }
 
   @Patch('/profile')
-  updateProfile(@Req() request, @Body() updateUserDto: UpdateUserDto) {
-    return this.authService.updateProfile(request, updateUserDto);
+  @UseInterceptors(
+    FileInterceptor('avatar'),
+    new ParseFormDataJsonInterceptor(),
+  )
+  updateProfile(
+    @Req() request,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() avatar: Express.Multer.File,
+  ) {
+    return this.authService.updateProfile(request, updateUserDto, avatar);
   }
 }

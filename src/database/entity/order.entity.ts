@@ -4,6 +4,8 @@ import {
   DeleteDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   OneToOne,
@@ -12,9 +14,10 @@ import {
 } from 'typeorm';
 import { OrderItemEntity } from './order_item.entity';
 import { UsersEntity } from './users.entity';
-import { TaxEntity } from './tax.entity';
+import { TaxAndDiscountEntity } from './tax-and-discount.entity';
 import { TableEntity } from './table.entity';
 import { PaymentEntity } from './payment.entity';
+
 @Entity('orders')
 export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -30,9 +33,6 @@ export class OrderEntity {
   })
   status: 'pending' | 'paid' | 'cancelled';
 
-  @Column()
-  discount: number;
-
   @Column({ unique: true })
   orderCode: string;
 
@@ -43,9 +43,18 @@ export class OrderEntity {
   @JoinColumn({ name: 'createdBy' })
   createdBy: UsersEntity;
 
-  @ManyToOne(() => TaxEntity, (tax) => tax.orders)
-  @JoinColumn({ name: 'tax' })
-  tax: TaxEntity;
+  @ManyToMany(() => TaxAndDiscountEntity, (taxDiscount) => taxDiscount.orders, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'order_tax_discount',
+    joinColumn: { name: 'orderId', referencedColumnName: 'id' },
+    inverseJoinColumn: {
+      name: 'taxDiscountId',
+      referencedColumnName: 'id',
+    },
+  })
+  taxesAndDiscounts: TaxAndDiscountEntity[];
 
   @ManyToOne(() => TableEntity, (table) => table.orders)
   @JoinColumn({ name: 'tableId' })

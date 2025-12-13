@@ -15,6 +15,10 @@ export class TaxService {
     return this.taxRepository.findAll();
   }
 
+  getActiveTaxes() {
+    return this.taxRepository.findAllActive();
+  }
+
   getTaxById(id: string) {
     return this.taxRepository.findById(id);
   }

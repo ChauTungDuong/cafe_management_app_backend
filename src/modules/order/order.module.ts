@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { UsersEntity } from 'src/database/entity/users.entity';
-import { TaxEntity } from 'src/database/entity/tax.entity';
+import { TaxAndDiscountEntity } from 'src/database/entity/tax-and-discount.entity';
 import { TableEntity } from 'src/database/entity/table.entity';
 import { ItemEntity } from 'src/database/entity/item.entity';
 import { OrderItemEntity } from 'src/database/entity/order_item.entity';
@@ -21,7 +21,7 @@ import { RecipeEntity } from 'src/database/entity/recipe.entity';
     TypeOrmModule.forFeature([
       OrderEntity,
       UsersEntity,
-      TaxEntity,
+      TaxAndDiscountEntity,
       TableEntity,
       ItemEntity,
       OrderItemEntity,

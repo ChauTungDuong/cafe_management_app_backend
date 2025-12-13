@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 import { MeasureUnit } from 'src/utils/constant';
 
 export class CreateIngredientDto {
@@ -12,4 +12,12 @@ export class CreateIngredientDto {
 
   @IsEnum(MeasureUnit)
   measureUnit: MeasureUnit;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
+  @IsString()
+  imagePublicId?: string;
 }

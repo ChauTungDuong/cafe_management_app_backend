@@ -8,12 +8,14 @@ import { Response } from 'express';
 import * as ms from 'ms-extended';
 import { access } from 'fs';
 import { UpdateUserDto } from '../users/dto/update-user-dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @Injectable()
 export class AuthService {
   constructor(
     private jwtService: JwtService,
     private userService: UsersService,
     private configService: ConfigService,
+    private cloudinaryService: CloudinaryService,
   ) {}
   async login(user: User) {
     if (!user.isActive) {
@@ -87,7 +89,29 @@ export class AuthService {
     return user;
   }
 
-  async updateProfile(request, updateUserDto: UpdateUserDto) {
+  async updateProfile(
+    request,
+    updateUserDto: UpdateUserDto,
+    avatar?: Express.Multer.File,
+  ) {
+    const user = await this.userService.findById(request.user.id);
+
+    // Handle avatar upload
+    if (avatar) {
+      // Delete old avatar from Cloudinary if exists
+      if (user.avatarPublicId) {
+        await this.cloudinaryService.deleteImage(user.avatarPublicId);
+      }
+
+      // Upload new avatar to Cloudinary
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        avatar,
+        'users',
+      );
+      updateUserDto.avatar = uploadResult.secure_url;
+      updateUserDto.avatarPublicId = uploadResult.public_id;
+    }
+
     const updatedUser = await this.userService.updateUser(
       request.user.id,
       updateUserDto,

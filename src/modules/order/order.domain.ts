@@ -8,10 +8,9 @@ export class Order {
   id: string;
   totalAmount: number;
   status: OrderStatus;
-  discount: number;
   orderCode: string;
   createdBy: Partial<User>;
-  tax: Partial<Tax>;
+  taxesAndDiscounts?: Partial<Tax>[];
   table: Partial<Table>;
   orderItems: {
     id: string;

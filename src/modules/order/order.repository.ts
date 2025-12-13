@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { UsersEntity } from 'src/database/entity/users.entity';
-import { TaxEntity } from 'src/database/entity/tax.entity';
+import { TaxAndDiscountEntity } from 'src/database/entity/tax-and-discount.entity';
 import { TableEntity } from 'src/database/entity/table.entity';
 import { ItemEntity } from 'src/database/entity/item.entity';
 import { OrderItemEntity } from 'src/database/entity/order_item.entity';
@@ -19,8 +19,8 @@ export class OrderRepository {
     private orderRepository: Repository<OrderEntity>,
     @InjectRepository(UsersEntity)
     private usersRepository: Repository<UsersEntity>,
-    @InjectRepository(TaxEntity)
-    private taxRepository: Repository<TaxEntity>,
+    @InjectRepository(TaxAndDiscountEntity)
+    private taxDiscountRepository: Repository<TaxAndDiscountEntity>,
     @InjectRepository(TableEntity)
     private tableRepository: Repository<TableEntity>,
     @InjectRepository(ItemEntity)
@@ -43,11 +43,13 @@ export class OrderRepository {
       throw new BadRequestException('User not found');
     }
 
-    const tax = await this.taxRepository.findOne({
-      where: { id: orderData.tax.id },
-    });
-    if (!tax) {
-      throw new BadRequestException('Tax not found');
+    let taxesAndDiscounts: TaxAndDiscountEntity[] = [];
+    if (orderData.taxesAndDiscounts && orderData.taxesAndDiscounts.length > 0) {
+      const ids = orderData.taxesAndDiscounts.map((td) => td.id);
+      taxesAndDiscounts = await this.taxDiscountRepository.findByIds(ids);
+      if (taxesAndDiscounts.length !== ids.length) {
+        throw new BadRequestException('One or more tax/discount not found');
+      }
     }
 
     const table = await this.tableRepository.findOne({
@@ -122,16 +124,22 @@ export class OrderRepository {
           itemsToCreate.push({ item, amount: orderItemData.amount });
         }
 
-        const totalAmount =
-          subtotal *
-          (1 +
-            (
-              await manager
-                .getRepository(TaxEntity)
-                .findOne({ where: { id: orderData.tax.id } })
-            ).percent /
-              100 -
-            (orderData.discount || 0) / 100);
+        // Calculate total with taxes and discounts
+        let totalAmount = subtotal;
+
+        // Apply taxes and discounts based on type
+        if (taxesAndDiscounts.length > 0) {
+          for (const taxDiscount of taxesAndDiscounts) {
+            const adjustment = (subtotal * taxDiscount.percent) / 100;
+            if (taxDiscount.type === 'tax') {
+              // Tax: cộng % vào subtotal
+              totalAmount += adjustment;
+            } else if (taxDiscount.type === 'discount') {
+              // Discount: trừ % từ subtotal
+              totalAmount -= adjustment;
+            }
+          }
+        }
 
         const timestamp = Date.now().toString().slice(-8); // Last 8 digits
         const random = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -140,14 +148,11 @@ export class OrderRepository {
         const orderEntity = manager.getRepository(OrderEntity).create({
           orderCode: orderCode,
           totalAmount: Math.round(totalAmount),
-          discount: orderData.discount || 0,
           status: orderData.status || 'pending',
           createdBy: await manager
             .getRepository(UsersEntity)
             .findOne({ where: { id: orderData.createdBy.id } }),
-          tax: await manager
-            .getRepository(TaxEntity)
-            .findOne({ where: { id: orderData.tax.id } }),
+          taxesAndDiscounts: taxesAndDiscounts,
           table: await manager
             .getRepository(TableEntity)
             .findOne({ where: { id: orderData.table.id } }),
@@ -177,7 +182,7 @@ export class OrderRepository {
       where: { id: result.id },
       relations: [
         'createdBy',
-        'tax',
+        'taxesAndDiscounts',
         'table',
         'orderItems',
         'orderItems.item',
@@ -193,7 +198,7 @@ export class OrderRepository {
       where: filters,
       relations: [
         'createdBy',
-        'tax',
+        'taxesAndDiscounts',
         'table',
         'orderItems',
         'orderItems.item',
@@ -208,7 +213,7 @@ export class OrderRepository {
       where: { id },
       relations: [
         'createdBy',
-        'tax',
+        'taxesAndDiscounts',
         'table',
         'orderItems',
         'orderItems.item',
@@ -241,9 +246,6 @@ export class OrderRepository {
     if (updateData.status !== undefined) {
       existingOrder.status = updateData.status;
     }
-    if (updateData.discount !== undefined) {
-      existingOrder.discount = updateData.discount;
-    }
 
     if (updateData.createdBy) {
       const user = await this.usersRepository.findOne({
@@ -252,11 +254,12 @@ export class OrderRepository {
       if (user) existingOrder.createdBy = user;
     }
 
-    if (updateData.tax) {
-      const tax = await this.taxRepository.findOne({
-        where: { id: updateData.tax.id },
-      });
-      if (tax) existingOrder.tax = tax;
+    if (updateData.taxesAndDiscounts) {
+      const ids = updateData.taxesAndDiscounts.map((td) => td.id);
+      const taxesAndDiscounts = await this.taxDiscountRepository.findByIds(ids);
+      if (taxesAndDiscounts.length === ids.length) {
+        existingOrder.taxesAndDiscounts = taxesAndDiscounts;
+      }
     }
 
     if (updateData.table) {
@@ -273,7 +276,7 @@ export class OrderRepository {
       where: { id },
       relations: [
         'createdBy',
-        'tax',
+        'taxesAndDiscounts',
         'table',
         'orderItems',
         'orderItems.item',

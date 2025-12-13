@@ -5,6 +5,8 @@ export class Ingredient {
   name: string;
   amountLeft: number;
   measureUnit: MeasureUnit;
+  image?: string;
+  imagePublicId?: string;
   createdAt?: Date;
   updatedAt?: Date;
   deletedAt?: Date;

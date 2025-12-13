@@ -44,6 +44,9 @@ export class UsersEntity {
   @Column({ nullable: true, default: '/public/defaults/default-avatar.png' })
   avatar: string;
 
+  @Column({ nullable: true })
+  avatarPublicId: string;
+
   @Column({ default: Role.STAFF })
   role: Role;
 

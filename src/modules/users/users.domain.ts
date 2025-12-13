@@ -11,6 +11,7 @@ export class User {
   phone?: string;
   address?: string;
   avatar?: string;
+  avatarPublicId?: string;
   gender?: string;
   birthday?: Date;
   isActive?: boolean;

@@ -29,6 +29,12 @@ export class TaxController {
     return this.taxService.getAllTaxes();
   }
 
+  @Get('active/list')
+  @Roles(Role.ADMIN, Role.STAFF)
+  getActiveTaxes() {
+    return this.taxService.getActiveTaxes();
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.STAFF)
   getTaxById(@Param('id') id: string) {

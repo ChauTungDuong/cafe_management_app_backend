@@ -10,7 +10,6 @@ export class OrderMapper {
     domain.id = entity.id;
     domain.totalAmount = entity.totalAmount;
     domain.status = entity.status;
-    domain.discount = entity.discount;
     domain.orderCode = entity.orderCode;
     if (entity.createdBy) {
       domain.createdBy = {
@@ -19,13 +18,14 @@ export class OrderMapper {
         email: entity.createdBy.email,
       };
     }
-    if (entity.tax) {
-      domain.tax = {
-        id: entity.tax.id,
-        percent: entity.tax.percent,
-        name: entity.tax.name,
-        description: entity.tax.description,
-      };
+    if (entity.taxesAndDiscounts) {
+      domain.taxesAndDiscounts = entity.taxesAndDiscounts.map((td) => ({
+        id: td.id,
+        percent: td.percent,
+        name: td.name,
+        description: td.description,
+        type: td.type,
+      }));
     }
     if (entity.table) {
       domain.table = {
@@ -70,7 +70,6 @@ export class OrderMapper {
       entity.id = domain.id;
     }
     entity.status = domain.status;
-    entity.discount = domain.discount;
     entity.orderCode = domain.orderCode;
     // others is set in repository
     return entity;

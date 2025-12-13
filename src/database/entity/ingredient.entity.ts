@@ -24,6 +24,12 @@ export class IngredientEntity {
   @Column({ type: 'enum', enum: MeasureUnit, nullable: true })
   measureUnit: MeasureUnit;
 
+  @Column({ nullable: true })
+  image?: string;
+
+  @Column({ nullable: true })
+  imagePublicId?: string;
+
   @OneToMany(
     () => RecipeIngredientsEntity,
     (recipeIngredient) => recipeIngredient.ingredient,
