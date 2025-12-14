@@ -21,6 +21,9 @@ import { PaymentModule } from './modules/payment/payment.module';
 import cloudinaryConfig from './config/cloudinary.config';
 import { RecipeModule } from './modules/recipe/recipe.module';
 import { IngredientModule } from './modules/ingredient/ingredient.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { StatisticModule } from './modules/statistic/statistic.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -31,6 +34,7 @@ import { IngredientModule } from './modules/ingredient/ingredient.module';
     TypeOrmModule.forRootAsync({
       useFactory: databaseConfig,
     }),
+    ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
       rootPath:
         process.env.NODE_ENV === 'production'
@@ -48,6 +52,8 @@ import { IngredientModule } from './modules/ingredient/ingredient.module';
     PaymentModule,
     IngredientModule,
     RecipeModule,
+    StatisticModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [
