@@ -39,6 +39,7 @@
     "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "crc": "^4.3.2",
+    "mailersend": "^2.6.0",
     "ms-extended": "^0.1.5",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
