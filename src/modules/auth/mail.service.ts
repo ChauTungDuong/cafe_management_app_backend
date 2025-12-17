@@ -9,9 +9,9 @@ export class MailService {
   constructor(private configService: ConfigService) {
     // Cấu hình transporter cho email
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get('MAIL_HOST') || 'smtp.gmail.com',
-      port: this.configService.get('MAIL_PORT') || 587,
-      secure: false, // true for 465, false for other ports
+      host: this.configService.get('MAIL_HOST'),
+      port: Number(this.configService.get('MAIL_PORT')),
+      secure: false,
       auth: {
         user: this.configService.get('MAIL_USER'),
         pass: this.configService.get('MAIL_PASSWORD'),
