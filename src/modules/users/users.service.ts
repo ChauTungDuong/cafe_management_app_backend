@@ -4,15 +4,30 @@ import { CreateUserDto } from './dto/create-user-dto';
 import { UpdateUserDto } from './dto/update-user-dto';
 import * as bcrypt from 'bcrypt';
 import { User } from './users.domain';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
-  async createUser(userData: CreateUserDto) {
+  async createUser(userData: CreateUserDto, avatar?: Express.Multer.File) {
     const existsUser = await this.usersRepository.findByEmail(userData.email);
     if (existsUser) {
       throw new Error('Email already in use');
     }
+
+    // Handle avatar upload
+    if (avatar) {
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        avatar,
+        'users',
+      );
+      userData.avatar = uploadResult.secure_url;
+      userData.avatarPublicId = uploadResult.public_id;
+    }
+
     return this.usersRepository.create(userData);
   }
   findAll() {
@@ -27,11 +42,32 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
-  async updateUser(id: string, updateUserDto: UpdateUserDto) {
+  async updateUser(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    avatar?: Express.Multer.File,
+  ) {
     const existsUser = await this.usersRepository.findById(id);
     if (!existsUser) {
       throw new Error('User not found');
     }
+
+    // Handle avatar upload
+    if (avatar) {
+      // Delete old avatar if exists
+      if (existsUser.avatarPublicId) {
+        await this.cloudinaryService.deleteImage(existsUser.avatarPublicId);
+      }
+
+      // Upload new avatar
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        avatar,
+        'users',
+      );
+      updateUserDto.avatar = uploadResult.secure_url;
+      updateUserDto.avatarPublicId = uploadResult.public_id;
+    }
+
     await this.usersRepository.update(id, updateUserDto);
     return this.usersRepository.findById(id);
   }

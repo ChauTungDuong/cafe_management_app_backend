@@ -166,9 +166,13 @@ export class StatisticService {
 
   /**
    * Get daily statistics for a specific date
+   * Accepts formats: YYYY-MM-DD, DD/MM/YYYY (e.g., 2024-12-13 or 13/12/2024)
    */
   async getDailyStats(dateString: string) {
     const date = parseDateAsUTC7(dateString);
+    if (!date) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD or DD/MM/YYYY');
+    }
     return this.statisticRepository.findByDateAndPeriod(
       date,
       StatisticPeriod.DAILY,
@@ -177,135 +181,157 @@ export class StatisticService {
 
   /**
    * Get monthly statistics for a specific year-month
+   * Accepts formats: YYYY-MM, DD/MM/YYYY (e.g., 2024-12 or 20/12/2024)
    */
   async getMonthlyStats(yearMonth: string) {
-    // yearMonth format: YYYY-MM
-    const [year, month] = yearMonth.split('-').map(Number);
-    const date = new Date(year, month - 1, 1);
-    return this.statisticRepository.findByDateAndPeriod(
-      date,
-      StatisticPeriod.MONTHLY,
-    );
+    let year: number;
+    let month: number;
+
+    // Check if format is DD/MM/YYYY
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(yearMonth)) {
+      const parsed = parseDateAsUTC7(yearMonth);
+      if (!parsed) {
+        throw new Error('Invalid date format');
+      }
+      year = parsed.getFullYear();
+      month = parsed.getMonth() + 1;
+    } else if (/^\d{4}-\d{2}$/.test(yearMonth)) {
+      // YYYY-MM format
+      [year, month] = yearMonth.split('-').map(Number);
+    } else {
+      throw new Error('Invalid format. Use YYYY-MM or DD/MM/YYYY');
+    }
+
+    return this.statisticRepository.findMonthlyStatsByYearMonth(year, month);
   }
 
   /**
    * Generate statistics for the last 30 days (manual trigger)
+   * Tổng hợp toàn bộ dữ liệu 30 ngày gần nhất thành 1 bản ghi monthly
    */
   async generateLastMonthStats() {
-    this.logger.log('Generating statistics for last 30 days...');
+    this.logger.log('Generating monthly statistics for last 30 days...');
 
     const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    let processedDays = 0;
-    let failedDays = 0;
+    try {
+      // Lấy tất cả orders trong 30 ngày gần nhất
+      const orders = await this.orderRepository
+        .createQueryBuilder('order')
+        .leftJoinAndSelect('order.orderItems', 'orderItems')
+        .leftJoinAndSelect('orderItems.item', 'item')
+        .where('order.createdAt >= :startDate', { startDate: thirtyDaysAgo })
+        .andWhere('order.createdAt <= :endDate', { endDate: today })
+        .andWhere('order.status = :status', { status: 'paid' })
+        .getMany();
 
-    // Generate daily stats for each day in the range
-    for (
-      let date = new Date(thirtyDaysAgo);
-      date <= today;
-      date.setDate(date.getDate() + 1)
-    ) {
-      try {
-        await this.calculateDailyStats(new Date(date));
-        processedDays++;
-      } catch (error) {
-        this.logger.error(
-          `Failed to generate stats for ${date.toISOString().split('T')[0]}`,
-          error.stack,
-        );
-        failedDays++;
-      }
+      // Tính toán thống kê tổng hợp
+      const stats = this.computeStatistics(orders);
+
+      // Lưu 1 bản ghi duy nhất với date là ngày hiện tại và period = monthly
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+
+      await this.statisticRepository.upsert({
+        date: currentDate,
+        period: StatisticPeriod.MONTHLY,
+        ...stats,
+      });
+
+      this.logger.log(
+        `Monthly stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+      );
+
+      return {
+        success: true,
+        message: `Generated monthly statistics for last 30 days`,
+        data: {
+          date: currentDate.toISOString().split('T')[0],
+          period: StatisticPeriod.MONTHLY,
+          startDate: thirtyDaysAgo.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0],
+          ...stats,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to generate monthly stats', error.stack);
+      return {
+        success: false,
+        message: 'Failed to generate statistics',
+        error: error.message,
+      };
     }
-
-    this.logger.log(
-      `Completed: ${processedDays} days processed, ${failedDays} failed`,
-    );
-
-    return {
-      success: true,
-      message: `Generated statistics for last 30 days`,
-      processed: processedDays,
-      failed: failedDays,
-      startDate: thirtyDaysAgo.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0],
-    };
   }
 
   /**
    * Generate statistics for a custom date range (manual trigger)
+   * Tổng hợp toàn bộ dữ liệu trong khoảng thời gian thành 1 bản ghi monthly
    */
   async generateStatsForRange(startDateStr: string, endDateStr: string) {
     const startDate = parseDateAsUTC7(startDateStr);
+    startDate.setHours(0, 0, 0, 0);
+
     const endDate = parseDateAsUTC7(endDateStr);
+    endDate.setHours(23, 59, 59, 999);
 
     this.logger.log(
-      `Generating statistics from ${startDateStr} to ${endDateStr}...`,
+      `Generating monthly statistics from ${startDateStr} to ${endDateStr}...`,
     );
 
-    let processedDays = 0;
-    let failedDays = 0;
+    try {
+      // Lấy tất cả orders trong khoảng thời gian
+      const orders = await this.orderRepository
+        .createQueryBuilder('order')
+        .leftJoinAndSelect('order.orderItems', 'orderItems')
+        .leftJoinAndSelect('orderItems.item', 'item')
+        .where('order.createdAt >= :startDate', { startDate })
+        .andWhere('order.createdAt <= :endDate', { endDate })
+        .andWhere('order.status = :status', { status: 'paid' })
+        .getMany();
 
-    // Generate daily stats for each day in the range
-    for (
-      let date = new Date(startDate);
-      date <= endDate;
-      date.setDate(date.getDate() + 1)
-    ) {
-      try {
-        await this.calculateDailyStats(new Date(date));
-        processedDays++;
-      } catch (error) {
-        this.logger.error(
-          `Failed to generate stats for ${date.toISOString().split('T')[0]}`,
-          error.stack,
-        );
-        failedDays++;
-      }
+      // Tính toán thống kê tổng hợp
+      const stats = this.computeStatistics(orders);
+
+      // Lưu 1 bản ghi duy nhất với date là ngày hiện tại và period = monthly
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+
+      await this.statisticRepository.upsert({
+        date: currentDate,
+        period: StatisticPeriod.MONTHLY,
+        ...stats,
+      });
+
+      this.logger.log(
+        `Monthly stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+      );
+
+      return {
+        success: true,
+        message: `Generated monthly statistics for date range`,
+        data: {
+          date: currentDate.toISOString().split('T')[0],
+          period: StatisticPeriod.MONTHLY,
+          startDate: startDateStr,
+          endDate: endDateStr,
+          ...stats,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        'Failed to generate monthly stats for range',
+        error.stack,
+      );
+      return {
+        success: false,
+        message: 'Failed to generate statistics',
+        error: error.message,
+      };
     }
-
-    // Also generate monthly stats for each month in the range
-    const monthsSet = new Set<string>();
-    for (
-      let date = new Date(startDate);
-      date <= endDate;
-      date.setDate(date.getDate() + 1)
-    ) {
-      const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
-      monthsSet.add(monthKey);
-    }
-
-    let processedMonths = 0;
-    for (const monthKey of monthsSet) {
-      const [year, month] = monthKey.split('-').map(Number);
-      try {
-        await this.calculateMonthlyStats(year, month);
-        processedMonths++;
-      } catch (error) {
-        this.logger.error(
-          `Failed to generate monthly stats for ${year}-${month}`,
-          error.stack,
-        );
-      }
-    }
-
-    this.logger.log(
-      `Completed: ${processedDays} days, ${processedMonths} months processed`,
-    );
-
-    return {
-      success: true,
-      message: `Generated statistics for date range`,
-      dailyStats: {
-        processed: processedDays,
-        failed: failedDays,
-      },
-      monthlyStats: {
-        processed: processedMonths,
-      },
-      startDate: startDateStr,
-      endDate: endDateStr,
-    };
   }
 }

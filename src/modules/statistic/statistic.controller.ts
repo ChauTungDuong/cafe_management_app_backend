@@ -21,7 +21,8 @@ export class StatisticController {
 
   /**
    * Lấy thống kê theo ngày cụ thể
-   * Example: GET /statistics/daily/2024-12-13
+   * Hỗ trợ định dạng: YYYY-MM-DD hoặc DD/MM/YYYY
+   * Example: GET /statistics/daily/2024-12-13 hoặc GET /statistics/daily/13/12/2024
    */
   @Get('daily/:date')
   @Roles(Role.ADMIN)
@@ -31,7 +32,8 @@ export class StatisticController {
 
   /**
    * Lấy thống kê theo tháng cụ thể
-   * Example: GET /statistics/monthly/2024-12
+   * Hỗ trợ định dạng: YYYY-MM hoặc DD/MM/YYYY
+   * Example: GET /statistics/monthly/2024-12 hoặc GET /statistics/monthly/20/12/2024
    */
   @Get('monthly/:yearMonth')
   @Roles(Role.ADMIN)
@@ -41,8 +43,9 @@ export class StatisticController {
 
   /**
    * Tạo thống kê thủ công cho 1 tháng gần nhất (30 ngày)
-   * Tính toán daily stats cho mỗi ngày từ 30 ngày trước đến hôm nay
-   * Example: POST /statistics/generate-last-month
+   * Tổng hợp toàn bộ dữ liệu 30 ngày gần nhất thành 1 bản ghi monthly
+   * Date của bản ghi là ngày tạo statistic, period = monthly
+   * Example: POST /statistics/generate
    */
   @Post('generate')
   @Roles(Role.ADMIN)
@@ -52,8 +55,10 @@ export class StatisticController {
 
   /**
    * Tạo thống kê thủ công cho khoảng thời gian tùy chỉnh
-   * Body: { startDate: "2024-11-01", endDate: "2024-12-14" }
-   * Example: POST /statistics/generate-range
+   * Tổng hợp toàn bộ dữ liệu trong khoảng thời gian thành 1 bản ghi monthly
+   * Date của bản ghi là ngày tạo statistic, period = monthly
+   * Query params: startDate, endDate
+   * Example: POST /statistics/generate-range?startDate=2024-11-01&endDate=2024-12-14
    */
   @Post('generate-range')
   @Roles(Role.ADMIN)

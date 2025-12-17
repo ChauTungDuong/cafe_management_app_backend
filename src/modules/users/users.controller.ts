@@ -6,21 +6,31 @@ import {
   Patch,
   Param,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user-dto';
 import { UpdateUserDto } from './dto/update-user-dto';
-
 import { Public, Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Roles(Role.ADMIN)
   @Post()
-  createUser(@Body() userData: CreateUserDto) {
-    return this.usersService.createUser(userData);
+  @UseInterceptors(
+    FileInterceptor('avatar'),
+    new ParseFormDataJsonInterceptor(),
+  )
+  createUser(
+    @Body() userData: CreateUserDto,
+    @UploadedFile() avatar: Express.Multer.File,
+  ) {
+    return this.usersService.createUser(userData, avatar);
   }
 
   @Roles(Role.ADMIN)
@@ -37,8 +47,16 @@ export class UsersController {
 
   @Roles(Role.ADMIN)
   @Patch(':id')
-  updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.updateUser(id, updateUserDto);
+  @UseInterceptors(
+    FileInterceptor('avatar'),
+    new ParseFormDataJsonInterceptor(),
+  )
+  updateUser(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() avatar: Express.Multer.File,
+  ) {
+    return this.usersService.updateUser(id, updateUserDto, avatar);
   }
 
   @Roles(Role.ADMIN)

@@ -25,9 +25,30 @@ export class StatisticRepository {
     date: Date,
     period: StatisticPeriod,
   ): Promise<Statistic | null> {
-    const entity = await this.statisticRepository.findOne({
-      where: { date, period },
-    });
+    // Format date to YYYY-MM-DD để so sánh chính xác với DB column type 'date'
+    const dateStr = date.toISOString().split('T')[0];
+
+    const entity = await this.statisticRepository
+      .createQueryBuilder('stat')
+      .where('stat.date = :date', { date: dateStr })
+      .andWhere('stat.period = :period', { period })
+      .getOne();
+
+    return entity ? StatisticMapper.toDomain(entity) : null;
+  }
+
+  async findMonthlyStatsByYearMonth(
+    year: number,
+    month: number,
+  ): Promise<Statistic | null> {
+    // Tìm bản ghi monthly trong tháng/năm đó (bất kể ngày nào trong tháng)
+    const entity = await this.statisticRepository
+      .createQueryBuilder('stat')
+      .where('EXTRACT(YEAR FROM stat.date) = :year', { year })
+      .andWhere('EXTRACT(MONTH FROM stat.date) = :month', { month })
+      .andWhere('stat.period = :period', { period: StatisticPeriod.MONTHLY })
+      .getOne();
+
     return entity ? StatisticMapper.toDomain(entity) : null;
   }
 

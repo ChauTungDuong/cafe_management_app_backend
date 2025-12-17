@@ -10,16 +10,26 @@ import { LocalStrategy } from './strategy/local.strategy';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { JwtRefreshStrategy } from './strategy/jwt.refresh.strategy';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { MailService } from './mail.service';
+import { TokenBlacklistService } from './token-blacklist.service';
+import { TokenBlacklistEntity } from 'src/database/entity/token-blacklist.entity';
 
 @Module({
   imports: [
     UsersModule,
     JwtModule.register({}),
-    TypeOrmModule.forFeature([UsersService]),
+    TypeOrmModule.forFeature([TokenBlacklistEntity]),
     CloudinaryModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    MailService,
+    TokenBlacklistService,
+    LocalStrategy,
+    JwtStrategy,
+    JwtRefreshStrategy,
+  ],
+  exports: [AuthService, TokenBlacklistService],
 })
 export class AuthModule {}

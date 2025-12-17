@@ -9,13 +9,20 @@ import * as ms from 'ms-extended';
 import { access } from 'fs';
 import { UpdateUserDto } from '../users/dto/update-user-dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { MailService } from './mail.service';
+import { TokenBlacklistService } from './token-blacklist.service';
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class AuthService {
+  private otpStore = new Map<string, { otp: string; expiresAt: number }>();
+
   constructor(
     private jwtService: JwtService,
     private userService: UsersService,
     private configService: ConfigService,
     private cloudinaryService: CloudinaryService,
+    private mailService: MailService,
+    private tokenBlacklistService: TokenBlacklistService,
   ) {}
   async login(user: User) {
     if (!user.isActive) {
@@ -117,5 +124,94 @@ export class AuthService {
       updateUserDto,
     );
     return updatedUser;
+  }
+
+  async logout(userId: string, accessToken: string) {
+    // Thêm access token vào blacklist
+    if (accessToken) {
+      await this.tokenBlacklistService.addToken(accessToken, userId);
+    } else {
+      throw new BadRequestException('No access token provided for logout');
+    }
+
+    // Xóa refresh token của user
+    await this.userService.updateUserRefreshToken(userId, null);
+
+    return {
+      success: true,
+      message: 'Đăng xuất thành công',
+    };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('Email không tồn tại trong hệ thống');
+    }
+
+    // Generate OTP 6 số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Lưu OTP với thời gian hết hạn 5 phút
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    this.otpStore.set(email, { otp, expiresAt });
+
+    // Gửi OTP qua email
+    await this.mailService.sendOtpEmail(email, otp);
+
+    return {
+      success: true,
+      message: 'Mã OTP đã được gửi đến email của bạn',
+      expiresIn: '5 phút',
+    };
+  }
+
+  async verifyOtp(email: string, otp: string) {
+    const storedData = this.otpStore.get(email);
+
+    if (!storedData) {
+      throw new BadRequestException('OTP không tồn tại hoặc đã hết hạn');
+    }
+
+    if (Date.now() > storedData.expiresAt) {
+      this.otpStore.delete(email);
+      throw new BadRequestException('OTP đã hết hạn');
+    }
+
+    if (storedData.otp !== otp) {
+      throw new BadRequestException('OTP không chính xác');
+    }
+
+    return {
+      success: true,
+      message: 'Xác thực OTP thành công',
+    };
+  }
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    // Verify OTP first
+    await this.verifyOtp(email, otp);
+
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User không tồn tại');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await this.userService.updateUser(user.id, { password: hashedPassword });
+
+    // Xóa OTP sau khi reset thành công
+    this.otpStore.delete(email);
+
+    // Xóa refresh token để bắt user login lại
+    await this.userService.updateUserRefreshToken(user.id, null);
+
+    return {
+      success: true,
+      message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
+    };
   }
 }
