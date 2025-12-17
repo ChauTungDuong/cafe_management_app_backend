@@ -40,7 +40,6 @@ export class AuthService {
       payload,
       user.id,
     );
-    // Secret và expiresIn đã được cấu hình trong AuthModule
     return {
       access_token: this.createToken(payload, 'JWT'),
       refresh_token: newRefreshToken,
@@ -103,14 +102,11 @@ export class AuthService {
   ) {
     const user = await this.userService.findById(request.user.id);
 
-    // Handle avatar upload
     if (avatar) {
-      // Delete old avatar from Cloudinary if exists
       if (user.avatarPublicId) {
         await this.cloudinaryService.deleteImage(user.avatarPublicId);
       }
 
-      // Upload new avatar to Cloudinary
       const uploadResult = await this.cloudinaryService.uploadImage(
         avatar,
         'users',
@@ -127,14 +123,12 @@ export class AuthService {
   }
 
   async logout(userId: string, accessToken: string) {
-    // Thêm access token vào blacklist
     if (accessToken) {
       await this.tokenBlacklistService.addToken(accessToken, userId);
     } else {
       throw new BadRequestException('No access token provided for logout');
     }
 
-    // Xóa refresh token của user
     await this.userService.updateUserRefreshToken(userId, null);
 
     return {
@@ -149,14 +143,11 @@ export class AuthService {
       throw new BadRequestException('Email không tồn tại trong hệ thống');
     }
 
-    // Generate OTP 6 số
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Lưu OTP với thời gian hết hạn 5 phút
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
     this.otpStore.set(email, { otp, expiresAt });
 
-    // Gửi OTP qua email
     await this.mailService.sendOtpEmail(email, otp);
 
     return {
@@ -189,26 +180,16 @@ export class AuthService {
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
-    // Verify OTP first
     await this.verifyOtp(email, otp);
-
     const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new BadRequestException('User không tồn tại');
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Update password
     await this.userService.updateUser(user.id, { password: hashedPassword });
-
-    // Xóa OTP sau khi reset thành công
     this.otpStore.delete(email);
-
-    // Xóa refresh token để bắt user login lại
     await this.userService.updateUserRefreshToken(user.id, null);
-
     return {
       success: true,
       message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',

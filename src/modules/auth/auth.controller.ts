@@ -22,6 +22,7 @@ import { Public, Roles } from './roles.decorator';
 import { UpdateUserDto } from '../users/dto/update-user-dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
+import { ResetPasswordDto, VerifyOtpDto } from './dto/forgot-password.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -55,5 +56,36 @@ export class AuthController {
     @UploadedFile() avatar: Express.Multer.File,
   ) {
     return this.authService.updateProfile(request, updateUserDto, avatar);
+  }
+
+  @Post('logout')
+  async logout(@Req() request) {
+    const token = request.headers.authorization?.split(' ')[1];
+    if (!token) {
+      throw new Error('Token not found');
+    }
+    return this.authService.logout(request.user.id, token);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  @Post('verify-otp')
+  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
+    return this.authService.verifyOtp(verifyOtpDto.email, verifyOtpDto.otp);
+  }
+
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.email,
+      resetPasswordDto.otp,
+      resetPasswordDto.newPassword,
+    );
   }
 }
