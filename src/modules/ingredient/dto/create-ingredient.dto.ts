@@ -18,6 +18,11 @@ export class CreateIngredientDto {
   image?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  minAmount?: number;
+
+  @IsOptional()
   @IsString()
   imagePublicId?: string;
 }

@@ -13,6 +13,7 @@ export class IngredientMapper {
     domain.measureUnit = entity.measureUnit;
     domain.imagePublicId = entity.imagePublicId;
     domain.image = entity.image;
+    domain.minAmount = entity.minAmount;
     domain.createdAt = entity.createdAt;
     domain.updatedAt = entity.updatedAt;
     domain.deletedAt = entity.deletedAt;
@@ -30,6 +31,7 @@ export class IngredientMapper {
     entity.name = domain.name;
     entity.amountLeft = domain.amountLeft;
     entity.measureUnit = domain.measureUnit;
+    entity.minAmount = domain.minAmount;
     entity.image = domain.image;
     entity.imagePublicId = domain.imagePublicId;
     return entity;

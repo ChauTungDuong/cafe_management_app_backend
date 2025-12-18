@@ -24,6 +24,9 @@ export class IngredientEntity {
   @Column({ type: 'enum', enum: MeasureUnit, nullable: true })
   measureUnit: MeasureUnit;
 
+  @Column({ nullable: true, default: 0 })
+  minAmount?: number;
+
   @Column({ nullable: true })
   image?: string;
 

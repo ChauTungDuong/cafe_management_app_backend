@@ -6,6 +6,7 @@ import {
   IsString,
   ValidateNested,
   Min,
+  IsOptional,
 } from 'class-validator';
 import { MeasureUnit } from 'src/utils/constant';
 
@@ -20,6 +21,11 @@ export class BulkIngredientItemDto {
 
   @IsEnum(MeasureUnit)
   measureUnit: MeasureUnit;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  minAmount?: number;
 }
 
 export class BulkCreateIngredientDto {
