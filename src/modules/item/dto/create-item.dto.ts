@@ -32,10 +32,6 @@ export class CreateItemDto {
   @IsNumber()
   price: number;
 
-  @IsNumber()
-  @Type(() => Number)
-  amountLeft: number;
-
   @IsOptional()
   @IsString()
   description: string;
