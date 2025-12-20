@@ -9,6 +9,13 @@ export class CategoryMapper {
     const domain = new Category();
     domain.id = entity.id;
     domain.name = entity.name;
+    domain.items = entity.items?.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      status: item.status,
+    }));
     return domain;
   }
 

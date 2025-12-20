@@ -16,19 +16,26 @@ export class CategoryRepository {
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const entity = await this.categoryRepository.save(
       this.categoryRepository.create({
-        name: createCategoryDto.name.toLowerCase(),
+        name: createCategoryDto.name,
       }),
     );
     return CategoryMapper.toDomain(entity);
   }
 
-  async findAll(): Promise<Category[]> {
-    const categories = await this.categoryRepository.find();
-    return categories.map((category) => CategoryMapper.toDomain(category));
+  async findAll(): Promise<{ data: Category[]; total: number }> {
+    const [categories, total] = await this.categoryRepository.findAndCount();
+
+    return {
+      data: categories.map((category) => CategoryMapper.toDomain(category)),
+      total,
+    };
   }
 
   async findById(id: Category['id']): Promise<Category> {
-    const category = await this.categoryRepository.findOne({ where: { id } });
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      relations: ['items'],
+    });
     return CategoryMapper.toDomain(category);
   }
   async update(

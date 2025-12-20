@@ -154,11 +154,21 @@ export class StatisticService {
     if (query.startDate && query.endDate) {
       const startDate = parseDateAsUTC7(query.startDate);
       const endDate = parseDateAsUTC7(query.endDate);
+
+      // Nếu chuỗi ngày không hợp lệ sẽ trả về undefined
+      if (!startDate || !endDate) {
+        throw new Error('Invalid date format. Use YYYY-MM-DD or DD/MM/YYYY');
+      }
       return this.statisticRepository.findByDateRange(
         startDate,
         endDate,
         query.period,
       );
+    }
+
+    // Nếu chỉ truyền period mà không truyền start/end thì vẫn lọc theo period
+    if (query.period) {
+      return this.statisticRepository.findAll(query.period);
     }
 
     return this.statisticRepository.findAll();

@@ -28,7 +28,7 @@ export class ItemRepository {
     imageFile?: Express.Multer.File,
   ): Promise<Item> {
     const category = await this.categoryRepository.findOne({
-      where: { name: itemData.category.name.toLowerCase() },
+      where: { name: itemData.category.name },
     });
     if (!category) {
       throw new BadRequestException('Category not found');
@@ -55,12 +55,19 @@ export class ItemRepository {
     return ItemMapper.toDomain(savedEntity);
   }
 
-  async findAll(filters: any): Promise<Item[]> {
-    const items = await this.itemRepository.find({
-      where: filters,
-      relations: ['category'], // Load category relation
+  async findAll(filters: any): Promise<{ data: Item[]; total: number }> {
+    const { skip, take, ...where } = filters || {};
+    const [items, total] = await this.itemRepository.findAndCount({
+      where,
+      relations: ['category'],
+      skip: skip ? Number(skip) : undefined,
+      take: take ? Number(take) : undefined,
     });
-    return items.map((item) => ItemMapper.toDomain(item));
+
+    return {
+      data: items.map((item) => ItemMapper.toDomain(item)),
+      total,
+    };
   }
 
   async findById(id: Item['id']): Promise<Item> {

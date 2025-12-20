@@ -12,8 +12,8 @@ export class RecipeRepository {
     private recipeRepository: Repository<RecipeEntity>,
   ) {}
 
-  async findAll(): Promise<Recipe[]> {
-    const entities = await this.recipeRepository.find({
+  async findAll(): Promise<{ data: Recipe[]; total: number }> {
+    const [entities, total] = await this.recipeRepository.findAndCount({
       relations: [
         'item',
         'item.category',
@@ -21,7 +21,11 @@ export class RecipeRepository {
         'recipeIngredients.ingredient',
       ],
     });
-    return entities.map((entity) => RecipeMapper.toDomain(entity));
+
+    return {
+      data: entities.map((entity) => RecipeMapper.toDomain(entity)),
+      total,
+    };
   }
 
   async findById(id: string): Promise<Recipe> {

@@ -86,8 +86,11 @@ export class StatisticRepository {
     return this.create(data);
   }
 
-  async findAll(): Promise<Statistic[]> {
+  async findAll(period?: StatisticPeriod): Promise<Statistic[]> {
+    const where = period ? { period } : undefined;
+
     const entities = await this.statisticRepository.find({
+      where,
       order: { date: 'DESC' },
     });
     return entities.map((e) => StatisticMapper.toDomain(e));
