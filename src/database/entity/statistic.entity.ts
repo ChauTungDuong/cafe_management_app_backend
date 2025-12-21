@@ -22,6 +22,15 @@ export interface TopProduct {
   totalRevenue: number;
 }
 
+export interface DailyBreakdown {
+  date: string; // YYYY-MM-DD
+  dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dayName: string; // 'Monday', 'Tuesday', etc.
+  revenue: number;
+  orders: number;
+  productsSold: number;
+}
+
 @Entity('statistics')
 export class StatisticEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -58,6 +67,10 @@ export class StatisticEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   topProducts: TopProduct[];
+
+  // Daily breakdown for weekly/monthly reports
+  @Column({ type: 'jsonb', nullable: true })
+  dailyBreakdown: DailyBreakdown[];
 
   @CreateDateColumn()
   createdAt: Date;

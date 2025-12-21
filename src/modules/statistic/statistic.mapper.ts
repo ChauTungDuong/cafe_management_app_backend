@@ -10,11 +10,14 @@ export class StatisticMapper {
     domain.id = entity.id;
     domain.date = entity.date;
     domain.period = entity.period;
+    domain.startDate = entity.startDate;
+    domain.endDate = entity.endDate;
     domain.totalRevenue = Number(entity.totalRevenue);
     domain.totalOrders = entity.totalOrders;
     domain.averageOrderValue = Number(entity.averageOrderValue);
     domain.totalProductsSold = entity.totalProductsSold;
     domain.topProducts = entity.topProducts || [];
+    domain.dailyBreakdown = entity.dailyBreakdown || null;
     domain.createdAt = entity.createdAt;
     domain.updatedAt = entity.updatedAt;
     domain.deletedAt = entity.deletedAt;
@@ -31,11 +34,14 @@ export class StatisticMapper {
     }
     entity.date = domain.date;
     entity.period = domain.period;
+    entity.startDate = domain.startDate;
+    entity.endDate = domain.endDate;
     entity.totalRevenue = domain.totalRevenue;
     entity.totalOrders = domain.totalOrders;
     entity.averageOrderValue = domain.averageOrderValue;
     entity.totalProductsSold = domain.totalProductsSold;
     entity.topProducts = domain.topProducts;
+    entity.dailyBreakdown = domain.dailyBreakdown;
     return entity;
   }
 }

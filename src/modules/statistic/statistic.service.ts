@@ -147,6 +147,15 @@ export class StatisticService {
     // Compute statistics
     const stats = this.computeStatistics(orders);
 
+    // Compute daily breakdown for weekly/monthly reports
+    let dailyBreakdown = null;
+    if (
+      period === StatisticPeriod.WEEKLY ||
+      period === StatisticPeriod.MONTHLY
+    ) {
+      dailyBreakdown = this.computeDailyBreakdown(orders, startDate, endDate);
+    }
+
     // Save report
     const report = await this.statisticRepository.create({
       date: now, // Report creation date
@@ -154,6 +163,7 @@ export class StatisticService {
       startDate, // Actual period start
       endDate, // Actual period end
       ...stats,
+      dailyBreakdown,
     });
 
     this.logger.log(
@@ -214,6 +224,11 @@ export class StatisticService {
       .getMany();
 
     const stats = this.computeStatistics(orders);
+    const dailyBreakdown = this.computeDailyBreakdown(
+      orders,
+      lastMonday,
+      lastSunday,
+    );
 
     const report = await this.statisticRepository.create({
       date: new Date(),
@@ -221,6 +236,7 @@ export class StatisticService {
       startDate: lastMonday,
       endDate: lastSunday,
       ...stats,
+      dailyBreakdown,
     });
 
     this.logger.log(
@@ -277,6 +293,11 @@ export class StatisticService {
       .getMany();
 
     const stats = this.computeStatistics(orders);
+    const dailyBreakdown = this.computeDailyBreakdown(
+      orders,
+      startOfMonth,
+      endOfMonth,
+    );
 
     const report = await this.statisticRepository.create({
       date: new Date(),
@@ -284,6 +305,7 @@ export class StatisticService {
       startDate: startOfMonth,
       endDate: endOfMonth,
       ...stats,
+      dailyBreakdown,
     });
 
     this.logger.log(
@@ -295,6 +317,73 @@ export class StatisticService {
       message: 'Báo cáo tháng đã được tạo tự động',
       data: report,
     };
+  }
+
+  /**
+   * Compute daily breakdown for multi-day reports
+   */
+  private computeDailyBreakdown(
+    orders: OrderEntity[],
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const dayNames = [
+      'Chủ nhật',
+      'Thứ hai',
+      'Thứ ba',
+      'Thứ tư',
+      'Thứ năm',
+      'Thứ sáu',
+      'Thứ bảy',
+    ];
+
+    // Group orders by date
+    const ordersByDate = new Map<string, OrderEntity[]>();
+
+    orders.forEach((order) => {
+      const orderDate = new Date(order.createdAt);
+      const dateKey = orderDate.toISOString().split('T')[0];
+
+      if (!ordersByDate.has(dateKey)) {
+        ordersByDate.set(dateKey, []);
+      }
+      ordersByDate.get(dateKey).push(order);
+    });
+
+    // Generate daily breakdown for each day in range
+    const breakdown = [];
+    const current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
+
+    while (current <= endDate) {
+      const dateKey = current.toISOString().split('T')[0];
+      const dayOrders = ordersByDate.get(dateKey) || [];
+
+      const revenue = dayOrders.reduce(
+        (sum, order) => sum + Number(order.totalAmount),
+        0,
+      );
+
+      let productsSold = 0;
+      dayOrders.forEach((order) => {
+        order.orderItems?.forEach((item) => {
+          productsSold += item.amount;
+        });
+      });
+
+      breakdown.push({
+        date: dateKey,
+        dayOfWeek: current.getDay(),
+        dayName: dayNames[current.getDay()],
+        revenue,
+        orders: dayOrders.length,
+        productsSold,
+      });
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return breakdown;
   }
 
   /**
