@@ -202,7 +202,8 @@ export class OrderRepository {
       .leftJoinAndSelect('order.table', 'table')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .leftJoinAndSelect('order.payments', 'payments');
+      .leftJoinAndSelect('order.payments', 'payments')
+      .orderBy('order.createdAt', 'DESC');
 
     // Apply filters if provided
     if (filters?.status) {

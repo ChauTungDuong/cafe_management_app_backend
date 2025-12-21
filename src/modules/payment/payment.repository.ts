@@ -96,7 +96,7 @@ export class PaymentRepository {
       qrCode: paymentData.qrCode,
       qrCodePublicId: paymentData.qrCodePublicId,
       orderCode: paymentData.orderCode,
-      orderId: order.id, // Explicitly set the foreign key
+      order: order, // Set the entire order object for proper relationship
     });
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
