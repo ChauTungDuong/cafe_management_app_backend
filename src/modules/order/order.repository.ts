@@ -221,6 +221,8 @@ export class OrderRepository {
           id: p.id,
           method: p.method,
           amount: p.amount,
+          orderId: (p as any).orderId,
+          deletedAt: p.deletedAt,
         })),
       );
     });
