@@ -16,40 +16,40 @@ export class TasksService {
   ) {}
 
   /**
-   * Run daily statistics calculation at 00:05 AM every day (UTC+7)
+   * Auto-generate weekly report every Monday at 00:01 AM (UTC+7)
+   * Generates report for the previous week (Monday to Sunday)
    */
-  @Cron('5 0 * * *', {
-    name: 'daily-statistics',
+  @Cron('1 0 * * 1', {
+    name: 'weekly-statistics',
     timeZone: 'Asia/Bangkok',
   })
-  async handleDailyStatistics() {
-    this.logger.log('Running daily statistics calculation...');
+  async handleWeeklyStatistics() {
+    this.logger.log('Running weekly statistics auto-generation...');
 
     try {
-      // Calculate stats for yesterday
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      await this.statisticService.calculateDailyStats(yesterday);
-
-      // Also calculate monthly stats if it's the first day of the month
-      const today = new Date();
-      if (today.getDate() === 1) {
-        const lastMonth = new Date(
-          today.getFullYear(),
-          today.getMonth() - 1,
-          1,
-        );
-        await this.statisticService.calculateMonthlyStats(
-          lastMonth.getFullYear(),
-          lastMonth.getMonth() + 1,
-        );
-        this.logger.log('Monthly statistics also calculated');
-      }
-
-      this.logger.log('Daily statistics calculation completed');
+      const result = await this.statisticService.autoGenerateWeeklyReport();
+      this.logger.log(`Weekly report: ${result.message}`);
     } catch (error) {
-      this.logger.error('Failed to calculate daily statistics', error.stack);
+      this.logger.error('Failed to generate weekly statistics', error.stack);
+    }
+  }
+
+  /**
+   * Auto-generate monthly report on the 1st day of each month at 00:01 AM (UTC+7)
+   * Generates report for the previous complete month
+   */
+  @Cron('1 0 1 * *', {
+    name: 'monthly-statistics',
+    timeZone: 'Asia/Bangkok',
+  })
+  async handleMonthlyStatistics() {
+    this.logger.log('Running monthly statistics auto-generation...');
+
+    try {
+      const result = await this.statisticService.autoGenerateMonthlyReport();
+      this.logger.log(`Monthly report: ${result.message}`);
+    } catch (error) {
+      this.logger.error('Failed to generate monthly statistics', error.stack);
     }
   }
 
@@ -124,26 +124,5 @@ export class TasksService {
     } catch (error) {
       this.logger.error('Failed to update tax/discount status', error.stack);
     }
-  }
-
-  /**
-   * Manual trigger for daily stats (for testing or catch-up)
-   */
-  async triggerDailyStats(date?: Date) {
-    const targetDate = date || new Date();
-    targetDate.setDate(targetDate.getDate() - 1);
-
-    this.logger.log(
-      `Manually triggering stats for ${targetDate.toISOString()}`,
-    );
-    await this.statisticService.calculateDailyStats(targetDate);
-  }
-
-  /**
-   * Manual trigger for monthly stats (for testing or catch-up)
-   */
-  async triggerMonthlyStats(year: number, month: number) {
-    this.logger.log(`Manually triggering stats for ${year}-${month}`);
-    await this.statisticService.calculateMonthlyStats(year, month);
   }
 }

@@ -54,6 +54,7 @@ export class OrderMapper {
         amount: payment.amount,
         method: payment.method,
         qrCode: payment.qrCode,
+        createdAt: payment.createdAt,
       }));
     }
 

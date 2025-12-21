@@ -10,7 +10,9 @@ import {
 
 export enum StatisticPeriod {
   DAILY = 'daily',
+  WEEKLY = 'weekly',
   MONTHLY = 'monthly',
+  CUSTOM = 'custom',
 }
 
 export interface TopProduct {
@@ -21,7 +23,6 @@ export interface TopProduct {
 }
 
 @Entity('statistics')
-@Index(['date', 'period'], { unique: true })
 export class StatisticEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -34,6 +35,14 @@ export class StatisticEntity {
     enum: StatisticPeriod,
   })
   period: StatisticPeriod;
+
+  // Actual start date of the period being reported
+  @Column({ type: 'date', nullable: true })
+  startDate: Date;
+
+  // Actual end date of the period being reported
+  @Column({ type: 'date', nullable: true })
+  endDate: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   totalRevenue: number;

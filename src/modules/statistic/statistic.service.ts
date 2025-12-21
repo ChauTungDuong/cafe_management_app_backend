@@ -1,4 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrderEntity } from 'src/database/entity/order.entity';
 import { Repository } from 'typeorm';
@@ -6,6 +12,7 @@ import { StatisticRepository } from './statistic.repository';
 import { StatisticPeriod } from 'src/database/entity/statistic.entity';
 import { QueryStatisticDto } from './dto/query-statistic.dto';
 import { parseDateAsUTC7 } from 'src/utils/timezone';
+import { CreateReportDto, ReportType } from './dto/create-report.dto';
 
 @Injectable()
 export class StatisticService {
@@ -18,70 +25,276 @@ export class StatisticService {
   ) {}
 
   /**
-   * Calculate daily statistics for a specific date
+   * Create manual report based on report type
    */
-  async calculateDailyStats(date: Date): Promise<void> {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+  async createReport(dto: CreateReportDto) {
+    const now = new Date();
 
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    let startDate: Date;
+    let endDate: Date;
+    let period: StatisticPeriod;
+
+    switch (dto.reportType) {
+      case ReportType.WEEKLY:
+        // Last 7 days from now
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
+
+        startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - 6); // 7 days including today
+        startDate.setHours(0, 0, 0, 0);
+
+        period = StatisticPeriod.WEEKLY;
+
+        // Check if weekly report already exists for this period
+        const existingWeekly =
+          await this.statisticRepository.findByDateRangeAndPeriod(
+            startDate,
+            endDate,
+            period,
+          );
+        if (existingWeekly) {
+          throw new ConflictException(
+            `Báo cáo tuần cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
+          );
+        }
+        break;
+
+      case ReportType.MONTHLY:
+        // Last 30 days from now
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
+
+        startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - 29); // 30 days including today
+        startDate.setHours(0, 0, 0, 0);
+
+        period = StatisticPeriod.MONTHLY;
+
+        // Check if monthly report already exists for this period
+        const existingMonthly =
+          await this.statisticRepository.findByDateRangeAndPeriod(
+            startDate,
+            endDate,
+            period,
+          );
+        if (existingMonthly) {
+          throw new ConflictException(
+            `Báo cáo tháng cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
+          );
+        }
+        break;
+
+      case ReportType.CUSTOM:
+        if (!dto.startDate || !dto.endDate) {
+          throw new BadRequestException(
+            'startDate và endDate là bắt buộc cho báo cáo tùy chỉnh',
+          );
+        }
+
+        startDate = parseDateAsUTC7(dto.startDate);
+        endDate = parseDateAsUTC7(dto.endDate);
+
+        if (!startDate || !endDate) {
+          throw new BadRequestException(
+            'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
+          );
+        }
+
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        if (startDate > endDate) {
+          throw new BadRequestException(
+            'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc',
+          );
+        }
+
+        period = StatisticPeriod.CUSTOM;
+
+        // Check if custom report already exists for this exact range
+        const existingCustom =
+          await this.statisticRepository.findByDateRangeAndPeriod(
+            startDate,
+            endDate,
+            period,
+          );
+        if (existingCustom) {
+          throw new ConflictException(
+            `Báo cáo tùy chỉnh cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
+          );
+        }
+        break;
+
+      default:
+        throw new BadRequestException('Loại báo cáo không hợp lệ');
+    }
 
     this.logger.log(
-      `Calculating daily stats for ${date.toISOString().split('T')[0]}`,
+      `Creating ${dto.reportType} report from ${startDate.toISOString()} to ${endDate.toISOString()}`,
     );
 
+    // Fetch orders in the date range
     const orders = await this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .where('order.createdAt >= :startOfDay', { startOfDay })
-      .andWhere('order.createdAt <= :endOfDay', { endOfDay })
+      .where('order.createdAt >= :startDate', { startDate })
+      .andWhere('order.createdAt <= :endDate', { endDate })
       .andWhere('order.status = :status', { status: 'paid' })
       .getMany();
 
+    // Compute statistics
     const stats = this.computeStatistics(orders);
 
-    await this.statisticRepository.upsert({
-      date: startOfDay,
-      period: StatisticPeriod.DAILY,
+    // Save report
+    const report = await this.statisticRepository.create({
+      date: now, // Report creation date
+      period,
+      startDate, // Actual period start
+      endDate, // Actual period end
       ...stats,
     });
 
     this.logger.log(
-      `Daily stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+      `Report created: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
     );
+
+    return {
+      success: true,
+      message: 'Báo cáo đã được tạo thành công',
+      data: report,
+    };
   }
 
   /**
-   * Calculate monthly statistics for a specific year-month
+   * Auto-generate weekly report (called by cron job)
+   * Generates report for the previous complete week (Monday to Sunday)
    */
-  async calculateMonthlyStats(year: number, month: number): Promise<void> {
-    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+  async autoGenerateWeeklyReport() {
+    const now = new Date();
 
-    this.logger.log(`Calculating monthly stats for ${year}-${month}`);
+    // Calculate previous week boundaries
+    const lastMonday = new Date(now);
+    const daysSinceMonday = (now.getDay() + 6) % 7; // 0 = Monday
+    lastMonday.setDate(now.getDate() - daysSinceMonday - 7); // Go back to previous Monday
+    lastMonday.setHours(0, 0, 0, 0);
 
+    const lastSunday = new Date(lastMonday);
+    lastSunday.setDate(lastMonday.getDate() + 6); // Sunday of that week
+    lastSunday.setHours(23, 59, 59, 999);
+
+    this.logger.log(
+      `Auto-generating weekly report for ${lastMonday.toISOString().split('T')[0]} to ${lastSunday.toISOString().split('T')[0]}`,
+    );
+
+    // Check if report already exists
+    const existing = await this.statisticRepository.findByDateRangeAndPeriod(
+      lastMonday,
+      lastSunday,
+      StatisticPeriod.WEEKLY,
+    );
+
+    if (existing) {
+      this.logger.warn('Weekly report already exists, skipping');
+      return {
+        success: false,
+        message: 'Báo cáo tuần đã tồn tại',
+      };
+    }
+
+    // Fetch and compute
     const orders = await this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .where('order.createdAt >= :startOfMonth', { startOfMonth })
-      .andWhere('order.createdAt <= :endOfMonth', { endOfMonth })
+      .where('order.createdAt >= :startDate', { startDate: lastMonday })
+      .andWhere('order.createdAt <= :endDate', { endDate: lastSunday })
       .andWhere('order.status = :status', { status: 'paid' })
       .getMany();
 
     const stats = this.computeStatistics(orders);
 
-    await this.statisticRepository.upsert({
-      date: startOfMonth,
-      period: StatisticPeriod.MONTHLY,
+    const report = await this.statisticRepository.create({
+      date: new Date(),
+      period: StatisticPeriod.WEEKLY,
+      startDate: lastMonday,
+      endDate: lastSunday,
       ...stats,
     });
 
     this.logger.log(
-      `Monthly stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+      `Weekly report created: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
     );
+
+    return {
+      success: true,
+      message: 'Báo cáo tuần đã được tạo tự động',
+      data: report,
+    };
+  }
+
+  /**
+   * Auto-generate monthly report (called by cron job)
+   * Generates report for the previous complete month
+   */
+  async autoGenerateMonthlyReport() {
+    const now = new Date();
+    const year =
+      now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const month = now.getMonth() === 0 ? 12 : now.getMonth(); // Previous month
+
+    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    this.logger.log(
+      `Auto-generating monthly report for ${year}-${month.toString().padStart(2, '0')}`,
+    );
+
+    // Check if report already exists
+    const existing = await this.statisticRepository.findByDateRangeAndPeriod(
+      startOfMonth,
+      endOfMonth,
+      StatisticPeriod.MONTHLY,
+    );
+
+    if (existing) {
+      this.logger.warn('Monthly report already exists, skipping');
+      return {
+        success: false,
+        message: 'Báo cáo tháng đã tồn tại',
+      };
+    }
+
+    // Fetch and compute
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.orderItems', 'orderItems')
+      .leftJoinAndSelect('orderItems.item', 'item')
+      .where('order.createdAt >= :startDate', { startDate: startOfMonth })
+      .andWhere('order.createdAt <= :endDate', { endDate: endOfMonth })
+      .andWhere('order.status = :status', { status: 'paid' })
+      .getMany();
+
+    const stats = this.computeStatistics(orders);
+
+    const report = await this.statisticRepository.create({
+      date: new Date(),
+      period: StatisticPeriod.MONTHLY,
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+      ...stats,
+    });
+
+    this.logger.log(
+      `Monthly report created: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+    );
+
+    return {
+      success: true,
+      message: 'Báo cáo tháng đã được tạo tự động',
+      data: report,
+    };
   }
 
   /**
@@ -155,9 +368,10 @@ export class StatisticService {
       const startDate = parseDateAsUTC7(query.startDate);
       const endDate = parseDateAsUTC7(query.endDate);
 
-      // Nếu chuỗi ngày không hợp lệ sẽ trả về undefined
       if (!startDate || !endDate) {
-        throw new Error('Invalid date format. Use YYYY-MM-DD or DD/MM/YYYY');
+        throw new BadRequestException(
+          'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
+        );
       }
       return this.statisticRepository.findByDateRange(
         startDate,
@@ -166,7 +380,6 @@ export class StatisticService {
       );
     }
 
-    // Nếu chỉ truyền period mà không truyền start/end thì vẫn lọc theo period
     if (query.period) {
       return this.statisticRepository.findAll(query.period);
     }
@@ -175,173 +388,13 @@ export class StatisticService {
   }
 
   /**
-   * Get daily statistics for a specific date
-   * Accepts formats: YYYY-MM-DD, DD/MM/YYYY (e.g., 2024-12-13 or 13/12/2024)
+   * Get specific report by ID
    */
-  async getDailyStats(dateString: string) {
-    const date = parseDateAsUTC7(dateString);
-    if (!date) {
-      throw new Error('Invalid date format. Use YYYY-MM-DD or DD/MM/YYYY');
+  async getReportById(id: string) {
+    const report = await this.statisticRepository.findById(id);
+    if (!report) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
     }
-    return this.statisticRepository.findByDateAndPeriod(
-      date,
-      StatisticPeriod.DAILY,
-    );
-  }
-
-  /**
-   * Get monthly statistics for a specific year-month
-   * Accepts formats: YYYY-MM, DD/MM/YYYY (e.g., 2024-12 or 20/12/2024)
-   */
-  async getMonthlyStats(yearMonth: string) {
-    let year: number;
-    let month: number;
-
-    // Check if format is DD/MM/YYYY
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(yearMonth)) {
-      const parsed = parseDateAsUTC7(yearMonth);
-      if (!parsed) {
-        throw new Error('Invalid date format');
-      }
-      year = parsed.getFullYear();
-      month = parsed.getMonth() + 1;
-    } else if (/^\d{4}-\d{2}$/.test(yearMonth)) {
-      // YYYY-MM format
-      [year, month] = yearMonth.split('-').map(Number);
-    } else {
-      throw new Error('Invalid format. Use YYYY-MM or DD/MM/YYYY');
-    }
-
-    return this.statisticRepository.findMonthlyStatsByYearMonth(year, month);
-  }
-
-  /**
-   * Generate statistics for the last 30 days (manual trigger)
-   * Tổng hợp toàn bộ dữ liệu 30 ngày gần nhất thành 1 bản ghi monthly
-   */
-  async generateLastMonthStats() {
-    this.logger.log('Generating monthly statistics for last 30 days...');
-
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
-
-    try {
-      // Lấy tất cả orders trong 30 ngày gần nhất
-      const orders = await this.orderRepository
-        .createQueryBuilder('order')
-        .leftJoinAndSelect('order.orderItems', 'orderItems')
-        .leftJoinAndSelect('orderItems.item', 'item')
-        .where('order.createdAt >= :startDate', { startDate: thirtyDaysAgo })
-        .andWhere('order.createdAt <= :endDate', { endDate: today })
-        .andWhere('order.status = :status', { status: 'paid' })
-        .getMany();
-
-      // Tính toán thống kê tổng hợp
-      const stats = this.computeStatistics(orders);
-
-      // Lưu 1 bản ghi duy nhất với date là ngày hiện tại và period = monthly
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-
-      await this.statisticRepository.upsert({
-        date: currentDate,
-        period: StatisticPeriod.MONTHLY,
-        ...stats,
-      });
-
-      this.logger.log(
-        `Monthly stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
-      );
-
-      return {
-        success: true,
-        message: `Generated monthly statistics for last 30 days`,
-        data: {
-          date: currentDate.toISOString().split('T')[0],
-          period: StatisticPeriod.MONTHLY,
-          startDate: thirtyDaysAgo.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
-          ...stats,
-        },
-      };
-    } catch (error) {
-      this.logger.error('Failed to generate monthly stats', error.stack);
-      return {
-        success: false,
-        message: 'Failed to generate statistics',
-        error: error.message,
-      };
-    }
-  }
-
-  /**
-   * Generate statistics for a custom date range (manual trigger)
-   * Tổng hợp toàn bộ dữ liệu trong khoảng thời gian thành 1 bản ghi monthly
-   */
-  async generateStatsForRange(startDateStr: string, endDateStr: string) {
-    const startDate = parseDateAsUTC7(startDateStr);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = parseDateAsUTC7(endDateStr);
-    endDate.setHours(23, 59, 59, 999);
-
-    this.logger.log(
-      `Generating monthly statistics from ${startDateStr} to ${endDateStr}...`,
-    );
-
-    try {
-      // Lấy tất cả orders trong khoảng thời gian
-      const orders = await this.orderRepository
-        .createQueryBuilder('order')
-        .leftJoinAndSelect('order.orderItems', 'orderItems')
-        .leftJoinAndSelect('orderItems.item', 'item')
-        .where('order.createdAt >= :startDate', { startDate })
-        .andWhere('order.createdAt <= :endDate', { endDate })
-        .andWhere('order.status = :status', { status: 'paid' })
-        .getMany();
-
-      // Tính toán thống kê tổng hợp
-      const stats = this.computeStatistics(orders);
-
-      // Lưu 1 bản ghi duy nhất với date là ngày hiện tại và period = monthly
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-
-      await this.statisticRepository.upsert({
-        date: currentDate,
-        period: StatisticPeriod.MONTHLY,
-        ...stats,
-      });
-
-      this.logger.log(
-        `Monthly stats saved: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
-      );
-
-      return {
-        success: true,
-        message: `Generated monthly statistics for date range`,
-        data: {
-          date: currentDate.toISOString().split('T')[0],
-          period: StatisticPeriod.MONTHLY,
-          startDate: startDateStr,
-          endDate: endDateStr,
-          ...stats,
-        },
-      };
-    } catch (error) {
-      this.logger.error(
-        'Failed to generate monthly stats for range',
-        error.stack,
-      );
-      return {
-        success: false,
-        message: 'Failed to generate statistics',
-        error: error.message,
-      };
-    }
+    return report;
   }
 }

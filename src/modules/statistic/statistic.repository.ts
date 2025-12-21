@@ -21,35 +21,87 @@ export class StatisticRepository {
     return StatisticMapper.toDomain(saved);
   }
 
-  async findByDateAndPeriod(
-    date: Date,
+  /**
+   * Find report by exact date range and period
+   */
+  async findByDateRangeAndPeriod(
+    startDate: Date,
+    endDate: Date,
     period: StatisticPeriod,
   ): Promise<Statistic | null> {
-    // Format date to YYYY-MM-DD để so sánh chính xác với DB column type 'date'
-    const dateStr = date.toISOString().split('T')[0];
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
 
     const entity = await this.statisticRepository
       .createQueryBuilder('stat')
-      .where('stat.date = :date', { date: dateStr })
+      .where('stat.startDate = :startDate', { startDate: startDateStr })
+      .andWhere('stat.endDate = :endDate', { endDate: endDateStr })
       .andWhere('stat.period = :period', { period })
       .getOne();
 
     return entity ? StatisticMapper.toDomain(entity) : null;
   }
 
-  async findMonthlyStatsByYearMonth(
-    year: number,
-    month: number,
-  ): Promise<Statistic | null> {
-    // Tìm bản ghi monthly trong tháng/năm đó (bất kể ngày nào trong tháng)
-    const entity = await this.statisticRepository
-      .createQueryBuilder('stat')
-      .where('EXTRACT(YEAR FROM stat.date) = :year', { year })
-      .andWhere('EXTRACT(MONTH FROM stat.date) = :month', { month })
-      .andWhere('stat.period = :period', { period: StatisticPeriod.MONTHLY })
-      .getOne();
+  /**
+   * Check if a weekly report exists for the week containing the given date
+   */
+  async findWeeklyReportForDate(date: Date): Promise<Statistic | null> {
+    const { startOfWeek, endOfWeek } = this.getWeekBoundaries(date);
+    return this.findByDateRangeAndPeriod(
+      startOfWeek,
+      endOfWeek,
+      StatisticPeriod.WEEKLY,
+    );
+  }
 
-    return entity ? StatisticMapper.toDomain(entity) : null;
+  /**
+   * Check if a monthly report exists for the month containing the given date
+   */
+  async findMonthlyReportForDate(date: Date): Promise<Statistic | null> {
+    const { startOfMonth, endOfMonth } = this.getMonthBoundaries(date);
+    return this.findByDateRangeAndPeriod(
+      startOfMonth,
+      endOfMonth,
+      StatisticPeriod.MONTHLY,
+    );
+  }
+
+  /**
+   * Get week boundaries (Monday to Sunday)
+   */
+  private getWeekBoundaries(date: Date): {
+    startOfWeek: Date;
+    endOfWeek: Date;
+  } {
+    const current = new Date(date);
+    const day = current.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // Monday
+
+    const startOfWeek = new Date(current);
+    startOfWeek.setDate(current.getDate() + diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    return { startOfWeek, endOfWeek };
+  }
+
+  /**
+   * Get month boundaries
+   */
+  private getMonthBoundaries(date: Date): {
+    startOfMonth: Date;
+    endOfMonth: Date;
+  } {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    return { startOfMonth, endOfMonth };
   }
 
   async findByDateRange(
@@ -72,20 +124,6 @@ export class StatisticRepository {
     return entities.map((e) => StatisticMapper.toDomain(e));
   }
 
-  async upsert(data: Partial<StatisticEntity>): Promise<Statistic> {
-    const existing = await this.findByDateAndPeriod(data.date, data.period);
-
-    if (existing) {
-      const updated = await this.statisticRepository.save({
-        ...data,
-        id: existing.id,
-      });
-      return StatisticMapper.toDomain(updated);
-    }
-
-    return this.create(data);
-  }
-
   async findAll(period?: StatisticPeriod): Promise<Statistic[]> {
     const where = period ? { period } : undefined;
 
@@ -94,5 +132,10 @@ export class StatisticRepository {
       order: { date: 'DESC' },
     });
     return entities.map((e) => StatisticMapper.toDomain(e));
+  }
+
+  async findById(id: string): Promise<Statistic | null> {
+    const entity = await this.statisticRepository.findOne({ where: { id } });
+    return entity ? StatisticMapper.toDomain(entity) : null;
   }
 }

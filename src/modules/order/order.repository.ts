@@ -194,17 +194,37 @@ export class OrderRepository {
   }
 
   async findAll(filters?: any): Promise<Order[]> {
-    const orders = await this.orderRepository.find({
-      where: filters,
-      relations: [
-        'createdBy',
-        'taxesAndDiscounts',
-        'table',
-        'orderItems',
-        'orderItems.item',
-        'payments',
-      ],
+    // Use QueryBuilder to ensure proper join with payments
+    let queryBuilder = this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.createdBy', 'createdBy')
+      .leftJoinAndSelect('order.taxesAndDiscounts', 'taxesAndDiscounts')
+      .leftJoinAndSelect('order.table', 'table')
+      .leftJoinAndSelect('order.orderItems', 'orderItems')
+      .leftJoinAndSelect('orderItems.item', 'item')
+      .leftJoinAndSelect('order.payments', 'payments');
+
+    // Apply filters if provided
+    if (filters?.status) {
+      queryBuilder = queryBuilder.where('order.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    const orders = await queryBuilder.getMany();
+
+    // Debug: Log payments for each order
+    orders.forEach((order) => {
+      console.log(
+        `📋 Order ${order.orderCode}: ${order.payments?.length || 0} payments`,
+        order.payments?.map((p) => ({
+          id: p.id,
+          method: p.method,
+          amount: p.amount,
+        })),
+      );
     });
+
     return orders.map((order) => OrderMapper.toDomain(order));
   }
 
