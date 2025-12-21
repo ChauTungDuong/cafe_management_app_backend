@@ -96,7 +96,7 @@ export class PaymentRepository {
       qrCode: paymentData.qrCode,
       qrCodePublicId: paymentData.qrCodePublicId,
       orderCode: paymentData.orderCode,
-      order: order,
+      orderId: order.id, // Explicitly set the foreign key
     });
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
@@ -104,9 +104,11 @@ export class PaymentRepository {
     console.log('✅ Payment saved:', savedPayment.id, 'for order:', order.id);
 
     if (paymentData.method !== 'QR') {
-      const allPayments = await this.paymentRepository.find({
-        where: { order: { id: order.id } },
-      });
+      // Query all payments for this order to check if fully paid
+      const allPayments = await this.paymentRepository
+        .createQueryBuilder('payment')
+        .where('payment.order = :orderId', { orderId: order.id })
+        .getMany();
 
       const totalPaid = allPayments.reduce(
         (sum, p) => sum + Number(p.amount),
