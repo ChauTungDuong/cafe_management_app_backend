@@ -22,12 +22,19 @@ export class CategoryRepository {
     return CategoryMapper.toDomain(entity);
   }
 
-  async findAll(): Promise<{ data: Category[]; total: number }> {
-    const [categories, total] = await this.categoryRepository.findAndCount();
+  async findAll(): Promise<{
+    data: { category: Category; totalItems: number }[];
+    totalCategory: number;
+  }> {
+    const [categories, totalCategory] =
+      await this.categoryRepository.findAndCount({ relations: ['items'] });
 
     return {
-      data: categories.map((category) => CategoryMapper.toDomain(category)),
-      total,
+      data: categories.map((category) => ({
+        category: CategoryMapper.toDomain(category),
+        totalItems: category.items ? category.items.length : 0,
+      })),
+      totalCategory,
     };
   }
 
