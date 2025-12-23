@@ -11,6 +11,7 @@ import { Order } from './order.domain';
 import { OrderMapper } from './order.mapper';
 import { IngredientEntity } from 'src/database/entity/ingredient.entity';
 import { RecipeEntity } from 'src/database/entity/recipe.entity';
+import { PaymentEntity } from 'src/database/entity/payment.entity';
 
 @Injectable()
 export class OrderRepository {
@@ -194,7 +195,7 @@ export class OrderRepository {
   }
 
   async findAll(filters?: any): Promise<Order[]> {
-    // Use QueryBuilder to ensure proper join with payments
+    // Fetch orders first; payments are loaded in a second query by orderId.
     let queryBuilder = this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.createdBy', 'createdBy')
@@ -202,12 +203,6 @@ export class OrderRepository {
       .leftJoinAndSelect('order.table', 'table')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .leftJoinAndSelect(
-        'order.payments',
-        'payments',
-        'payments.deletedAt IS NULL',
-      )
-      .leftJoinAndSelect('payments.order', 'paymentOrder')
       .orderBy('order.createdAt', 'DESC');
 
     // Apply filters if provided
@@ -219,19 +214,30 @@ export class OrderRepository {
 
     const orders = await queryBuilder.getMany();
 
-    // Debug: Log payments for each order
-    orders.forEach((order) => {
-      console.log(
-        `📋 Order ${order.orderCode}: ${order.payments?.length || 0} payments`,
-        order.payments?.map((p) => ({
-          id: p.id,
-          method: p.method,
-          amount: p.amount,
-          orderId: (p as any).orderId,
-          deletedAt: p.deletedAt,
-        })),
-      );
-    });
+    // Hydrate payments by FK. This avoids inconsistent relation-join behavior observed for cash/card.
+    const orderIds = orders.map((o) => o.id).filter(Boolean);
+    if (orderIds.length > 0) {
+      const payments = await this.orderRepository.manager
+        .getRepository(PaymentEntity)
+        .createQueryBuilder('payment')
+        .where('payment.orderId IN (:...orderIds)', { orderIds })
+        .andWhere('payment.deletedAt IS NULL')
+        .orderBy('payment.createdAt', 'ASC')
+        .getMany();
+
+      const paymentsByOrderId = new Map<string, PaymentEntity[]>();
+      for (const p of payments) {
+        const oid = (p as any).orderId;
+        if (!oid) continue;
+        const arr = paymentsByOrderId.get(oid) ?? [];
+        arr.push(p);
+        paymentsByOrderId.set(oid, arr);
+      }
+
+      for (const o of orders) {
+        (o as any).payments = paymentsByOrderId.get(o.id) ?? [];
+      }
+    }
 
     return orders.map((order) => OrderMapper.toDomain(order));
   }
@@ -245,12 +251,21 @@ export class OrderRepository {
         'table',
         'orderItems',
         'orderItems.item',
-        'payments',
       ],
     });
     if (!order) {
       throw new BadRequestException('Order not found');
     }
+
+    const payments = await this.orderRepository.manager
+      .getRepository(PaymentEntity)
+      .createQueryBuilder('payment')
+      .where('payment.orderId = :orderId', { orderId: id })
+      .andWhere('payment.deletedAt IS NULL')
+      .orderBy('payment.createdAt', 'ASC')
+      .getMany();
+    (order as any).payments = payments;
+
     return OrderMapper.toDomain(order);
   }
 
