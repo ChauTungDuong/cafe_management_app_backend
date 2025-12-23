@@ -96,7 +96,8 @@ export class PaymentRepository {
       qrCode: paymentData.qrCode,
       qrCodePublicId: paymentData.qrCodePublicId,
       orderCode: paymentData.orderCode,
-      order: order, // TypeORM will automatically set orderId from this relation
+      orderId: order.id, // explicitly set FK to ensure persistence
+      order: order, // also set relation
     });
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);

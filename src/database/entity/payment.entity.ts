@@ -29,8 +29,8 @@ export class PaymentEntity {
   @Column({ nullable: true })
   orderCode: string;
 
-  // Foreign key column - managed by the relation but exposed for queries
-  @Column({ nullable: true, insert: false, update: false })
+  // Foreign key column; let TypeORM persist it (insert/update enabled)
+  @Column({ nullable: true })
   orderId: string;
 
   @ManyToOne(() => OrderEntity, (order) => order.payments, {
