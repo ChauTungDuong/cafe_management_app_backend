@@ -132,10 +132,10 @@ export class OrderRepository {
           for (const taxDiscount of taxesAndDiscounts) {
             const adjustment = (subtotal * taxDiscount.percent) / 100;
             if (taxDiscount.type === 'tax') {
-              // Tax: cộng % vào subtotal
+              // Tax: add to subtotal
               totalAmount += adjustment;
             } else if (taxDiscount.type === 'discount') {
-              // Discount: trừ % từ subtotal
+              // Discount: subtract from subtotal
               totalAmount -= adjustment;
             }
           }

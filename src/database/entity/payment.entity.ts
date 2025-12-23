@@ -29,6 +29,10 @@ export class PaymentEntity {
   @Column({ nullable: true })
   orderCode: string;
 
+  // Foreign key column - managed by the relation but exposed for queries
+  @Column({ nullable: true, insert: false, update: false })
+  orderId: string;
+
   @ManyToOne(() => OrderEntity, (order) => order.payments, {
     onDelete: 'CASCADE',
   })

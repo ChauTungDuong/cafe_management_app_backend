@@ -103,6 +103,7 @@ export class PaymentRepository {
 
     console.log('✅ Payment saved:', {
       id: savedPayment.id,
+      orderId: (savedPayment as any).orderId, // Check if orderId is actually saved
       method: savedPayment.method,
       amount: savedPayment.amount,
       orderCode: savedPayment.orderCode,
