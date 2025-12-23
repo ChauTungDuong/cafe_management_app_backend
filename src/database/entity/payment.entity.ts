@@ -29,9 +29,6 @@ export class PaymentEntity {
   @Column({ nullable: true })
   orderCode: string;
 
-  @Column({ nullable: true })
-  orderId: string;
-
   @ManyToOne(() => OrderEntity, (order) => order.payments, {
     onDelete: 'CASCADE',
   })

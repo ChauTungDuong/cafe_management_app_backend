@@ -96,14 +96,13 @@ export class PaymentRepository {
       qrCode: paymentData.qrCode,
       qrCodePublicId: paymentData.qrCodePublicId,
       orderCode: paymentData.orderCode,
-      order: order, // Set the entire order object for proper relationship
+      order: order, // TypeORM will automatically set orderId from this relation
     });
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
 
     console.log('✅ Payment saved:', {
       id: savedPayment.id,
-      orderId: savedPayment.orderId,
       method: savedPayment.method,
       amount: savedPayment.amount,
       orderCode: savedPayment.orderCode,
@@ -114,6 +113,7 @@ export class PaymentRepository {
       const allPayments = await this.paymentRepository
         .createQueryBuilder('payment')
         .where('payment.orderId = :orderId', { orderId: order.id })
+        .andWhere('payment.deletedAt IS NULL')
         .getMany();
 
       console.log(
