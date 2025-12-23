@@ -28,9 +28,10 @@ export class PaymentRepository {
   ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
+    // IMPORTANT: don't eagerly load relations here.
+    // Loading an empty payments relation and later calling save(order) can detach payments.
     const order = await this.orderRepository.findOne({
       where: { id: createPaymentDto.orderId },
-      relations: ['payments'],
     });
     if (!order) {
       throw new BadRequestException('Order not found');
@@ -136,8 +137,8 @@ export class PaymentRepository {
       );
 
       if (totalPaid >= order.totalAmount) {
-        order.status = 'paid';
-        await this.orderRepository.save(order);
+        // Update only the status field; do not save the whole entity (can affect relations)
+        await this.orderRepository.update(order.id, { status: 'paid' });
       }
     }
 
@@ -185,8 +186,10 @@ export class PaymentRepository {
     }
 
     if (payment.order) {
-      payment.order.status = 'pending';
-      await this.orderRepository.save(payment.order);
+      // Update only status; avoid saving entity graphs
+      await this.orderRepository.update(payment.order.id, {
+        status: 'pending',
+      });
     }
 
     await this.paymentRepository.softRemove(payment);
