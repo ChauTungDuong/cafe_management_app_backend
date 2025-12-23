@@ -207,6 +207,7 @@ export class OrderRepository {
         'payments',
         'payments.deletedAt IS NULL',
       )
+      .leftJoinAndSelect('payments.order', 'paymentOrder')
       .orderBy('order.createdAt', 'DESC');
 
     // Apply filters if provided

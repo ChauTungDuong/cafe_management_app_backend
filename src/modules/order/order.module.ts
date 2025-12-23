@@ -15,6 +15,7 @@ import { CategoryRepository } from '../category/category.repository';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { IngredientEntity } from 'src/database/entity/ingredient.entity';
 import { RecipeEntity } from 'src/database/entity/recipe.entity';
+import { PaymentEntity } from 'src/database/entity/payment.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RecipeEntity } from 'src/database/entity/recipe.entity';
       CategoryEntity,
       IngredientEntity,
       RecipeEntity,
+      PaymentEntity,
     ]),
     CloudinaryModule,
   ],
