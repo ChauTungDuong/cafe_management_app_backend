@@ -138,4 +138,15 @@ export class StatisticRepository {
     const entity = await this.statisticRepository.findOne({ where: { id } });
     return entity ? StatisticMapper.toDomain(entity) : null;
   }
+
+  async findLatestByPeriod(period: StatisticPeriod): Promise<Statistic | null> {
+    const entity = await this.statisticRepository
+      .createQueryBuilder('stat')
+      .where('stat.period = :period', { period })
+      .orderBy('stat.date', 'DESC')
+      .addOrderBy('stat.createdAt', 'DESC')
+      .getOne();
+
+    return entity ? StatisticMapper.toDomain(entity) : null;
+  }
 }

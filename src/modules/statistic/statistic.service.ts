@@ -12,11 +12,14 @@ import { StatisticRepository } from './statistic.repository';
 import { StatisticPeriod } from 'src/database/entity/statistic.entity';
 import { QueryStatisticDto } from './dto/query-statistic.dto';
 import { parseDateAsUTC7 } from 'src/utils/timezone';
-import { CreateReportDto, ReportType } from './dto/create-report.dto';
+import { CreateReportManualDto } from './dto/create-report.dto';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class StatisticService {
   private readonly logger = new Logger(StatisticService.name);
+
+  private readonly utc7TimeZone = 'Asia/Bangkok';
 
   constructor(
     private statisticRepository: StatisticRepository,
@@ -24,114 +27,114 @@ export class StatisticService {
     private orderRepository: Repository<OrderEntity>,
   ) {}
 
+  private formatDateUTC7(input?: Date | string | number): string {
+    if (input === undefined || input === null || input === '') return '';
+
+    let date: Date;
+    if (input instanceof Date) {
+      date = input;
+    } else if (typeof input === 'number') {
+      date = new Date(input);
+    } else {
+      // try parse with helper which understands YYYY-MM-DD and DD/MM/YYYY
+      date = parseDateAsUTC7(input as string) || new Date(input as string);
+    }
+
+    if (!date || isNaN(date.getTime())) {
+      // return empty string to avoid throwing RangeError from Intl
+      return '';
+    }
+
+    // en-CA formats as YYYY-MM-DD
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.utc7TimeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  }
+
+  private dateOnlyFromKey(dateKey: string): Date {
+    // Store date-only values in UTC midnight so toISOString().split('T')[0] stays stable
+    // and matches the intended YYYY-MM-DD.
+    return new Date(`${dateKey}T00:00:00.000Z`);
+  }
+
+  private normalizeInputToUTC7DateKey(input: string): string {
+    const parsed = parseDateAsUTC7(input);
+    if (!parsed) {
+      throw new BadRequestException(
+        'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
+      );
+    }
+    return this.formatDateUTC7(parsed);
+  }
+
+  private utc7DayStart(dateKey: string): Date {
+    return new Date(`${dateKey}T00:00:00.000+07:00`);
+  }
+
+  private utc7DayEnd(dateKey: string): Date {
+    return new Date(`${dateKey}T23:59:59.999+07:00`);
+  }
+
+  async getLatestReport(period: StatisticPeriod) {
+    if (!period) {
+      throw new BadRequestException('Thiếu tham số period');
+    }
+    const report = await this.statisticRepository.findLatestByPeriod(period);
+    if (!report) {
+      throw new NotFoundException('Chưa có báo cáo cho kỳ này');
+    }
+    return report;
+  }
+
   /**
    * Create manual report based on report type
    */
-  async createReport(dto: CreateReportDto) {
+  async createReport(dto: CreateReportManualDto) {
     const now = new Date();
 
     let startDate: Date;
     let endDate: Date;
-    let period: StatisticPeriod;
-
-    switch (dto.reportType) {
-      case ReportType.WEEKLY:
-        // Last 7 days from now
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
-
-        startDate = new Date(endDate);
-        startDate.setDate(endDate.getDate() - 6); // 7 days including today
-        startDate.setHours(0, 0, 0, 0);
-
-        period = StatisticPeriod.WEEKLY;
-
-        // Check if weekly report already exists for this period
-        const existingWeekly =
-          await this.statisticRepository.findByDateRangeAndPeriod(
-            startDate,
-            endDate,
-            period,
-          );
-        if (existingWeekly) {
-          throw new ConflictException(
-            `Báo cáo tuần cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
-          );
-        }
-        break;
-
-      case ReportType.MONTHLY:
-        // Last 30 days from now
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
-
-        startDate = new Date(endDate);
-        startDate.setDate(endDate.getDate() - 29); // 30 days including today
-        startDate.setHours(0, 0, 0, 0);
-
-        period = StatisticPeriod.MONTHLY;
-
-        // Check if monthly report already exists for this period
-        const existingMonthly =
-          await this.statisticRepository.findByDateRangeAndPeriod(
-            startDate,
-            endDate,
-            period,
-          );
-        if (existingMonthly) {
-          throw new ConflictException(
-            `Báo cáo tháng cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
-          );
-        }
-        break;
-
-      case ReportType.CUSTOM:
-        if (!dto.startDate || !dto.endDate) {
-          throw new BadRequestException(
-            'startDate và endDate là bắt buộc cho báo cáo tùy chỉnh',
-          );
-        }
-
-        startDate = parseDateAsUTC7(dto.startDate);
-        endDate = parseDateAsUTC7(dto.endDate);
-
-        if (!startDate || !endDate) {
-          throw new BadRequestException(
-            'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
-          );
-        }
-
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        if (startDate > endDate) {
-          throw new BadRequestException(
-            'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc',
-          );
-        }
-
-        period = StatisticPeriod.CUSTOM;
-
-        // Check if custom report already exists for this exact range
-        const existingCustom =
-          await this.statisticRepository.findByDateRangeAndPeriod(
-            startDate,
-            endDate,
-            period,
-          );
-        if (existingCustom) {
-          throw new ConflictException(
-            `Báo cáo tùy chỉnh cho khoảng ${startDate.toISOString().split('T')[0]} đến ${endDate.toISOString().split('T')[0]} đã tồn tại`,
-          );
-        }
-        break;
-
-      default:
-        throw new BadRequestException('Loại báo cáo không hợp lệ');
+    let period: StatisticPeriod.CUSTOM;
+    if (!dto.startDate || !dto.endDate) {
+      throw new BadRequestException(
+        'Báo cáo tùy chỉnh phải có ngày bắt đầu và ngày kết thúc',
+      );
     }
 
+    const startKey = this.normalizeInputToUTC7DateKey(dto.startDate);
+    const endKey = this.normalizeInputToUTC7DateKey(dto.endDate);
+
+    const startTs = this.utc7DayStart(startKey);
+    const endTs = this.utc7DayEnd(endKey);
+
+    const startDateOnly = this.dateOnlyFromKey(startKey);
+    const endDateOnly = this.dateOnlyFromKey(endKey);
+
+    if (startTs > endTs) {
+      throw new BadRequestException(
+        'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc',
+      );
+    }
+
+    period = StatisticPeriod.CUSTOM;
+
+    // Check if custom report already exists for this exact range
+    const existingCustom =
+      await this.statisticRepository.findByDateRangeAndPeriod(
+        startDateOnly,
+        endDateOnly,
+        period,
+      );
+    if (existingCustom) {
+      throw new ConflictException(
+        `Báo cáo tùy chỉnh cho khoảng ${startKey} đến ${endKey} đã tồn tại`,
+      );
+    }
     this.logger.log(
-      `Creating ${dto.reportType} report from ${startDate.toISOString()} to ${endDate.toISOString()}`,
+      `Creating custom report from ${startTs.toISOString()} to ${endTs.toISOString()}`,
     );
 
     // Fetch orders in the date range
@@ -139,29 +142,22 @@ export class StatisticService {
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .where('order.createdAt >= :startDate', { startDate })
-      .andWhere('order.createdAt <= :endDate', { endDate })
+      .where('order.createdAt >= :startDate', { startDate: startTs })
+      .andWhere('order.createdAt <= :endDate', { endDate: endTs })
       .andWhere('order.status = :status', { status: 'paid' })
       .getMany();
 
     // Compute statistics
     const stats = this.computeStatistics(orders);
 
-    // Compute daily breakdown for weekly/monthly reports
-    let dailyBreakdown = null;
-    if (
-      period === StatisticPeriod.WEEKLY ||
-      period === StatisticPeriod.MONTHLY
-    ) {
-      dailyBreakdown = this.computeDailyBreakdown(orders, startDate, endDate);
-    }
-
+    // Compute daily breakdown for custom reports
+    const dailyBreakdown = this.computeDailyBreakdown(orders, startTs, endTs);
     // Save report
     const report = await this.statisticRepository.create({
-      date: now, // Report creation date
+      date: this.dateOnlyFromKey(this.formatDateUTC7(now)), // Report creation date (date-only)
       period,
-      startDate, // Actual period start
-      endDate, // Actual period end
+      startDate: startDateOnly, // Date-only
+      endDate: endDateOnly, // Date-only
       ...stats,
       dailyBreakdown,
     });
@@ -177,31 +173,96 @@ export class StatisticService {
     };
   }
 
-  /**
-   * Auto-generate weekly report (called by cron job)
-   * Generates report for the previous complete week (Monday to Sunday)
-   */
-  async autoGenerateWeeklyReport() {
+  // cron job
+
+  async autoGenerateDailyReport() {
     const now = new Date();
+    const todayKey = this.formatDateUTC7(now);
+    const todayStart = this.utc7DayStart(todayKey);
+    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayKey = this.formatDateUTC7(yesterdayStart);
+    const startTs = this.utc7DayStart(yesterdayKey);
+    const endTs = this.utc7DayEnd(yesterdayKey);
+    const dateOnly = this.dateOnlyFromKey(yesterdayKey);
 
-    // Calculate previous week boundaries
-    const lastMonday = new Date(now);
-    const daysSinceMonday = (now.getDay() + 6) % 7; // 0 = Monday
-    lastMonday.setDate(now.getDate() - daysSinceMonday - 7); // Go back to previous Monday
-    lastMonday.setHours(0, 0, 0, 0);
+    this.logger.log(`Auto-generating daily report for ${yesterdayKey}`);
 
-    const lastSunday = new Date(lastMonday);
-    lastSunday.setDate(lastMonday.getDate() + 6); // Sunday of that week
-    lastSunday.setHours(23, 59, 59, 999);
+    const existing = await this.statisticRepository.findByDateRangeAndPeriod(
+      dateOnly,
+      dateOnly,
+      StatisticPeriod.DAILY,
+    );
+    if (existing) {
+      this.logger.warn('Daily report already exists, skipping');
+      return {
+        success: false,
+        message: 'Báo cáo ngày đã tồn tại',
+      };
+    }
+    // computing things
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.orderItems', 'orderItems')
+      .leftJoinAndSelect('orderItems.item', 'item')
+      .where('order.createdAt >= :startDate', { startDate: startTs })
+      .andWhere('order.createdAt <= :endDate', { endDate: endTs })
+      .andWhere('order.status = :status', { status: 'paid' })
+      .getMany();
+
+    const stats = this.computeStatistics(orders);
+    const dailyBreakdown = this.computeDailyBreakdown(orders, startTs, endTs);
+
+    const report = await this.statisticRepository.create({
+      date: dateOnly,
+      period: StatisticPeriod.DAILY,
+      startDate: dateOnly,
+      endDate: dateOnly,
+      ...stats,
+      dailyBreakdown,
+    });
 
     this.logger.log(
-      `Auto-generating weekly report for ${lastMonday.toISOString().split('T')[0]} to ${lastSunday.toISOString().split('T')[0]}`,
+      `Daily report created: ${stats.totalOrders} orders, ${stats.totalRevenue} revenue`,
+    );
+
+    return {
+      success: true,
+      message: 'Báo cáo ngày đã được tạo tự động',
+      data: report,
+    };
+  }
+  async autoGenerateWeeklyReport() {
+    const now = new Date();
+    // Work with date-only (UTC+7) to avoid timezone drift
+    const todayKey = this.formatDateUTC7(now);
+    const todayDateOnlyUtc = this.dateOnlyFromKey(todayKey);
+    const dow = todayDateOnlyUtc.getUTCDay(); // day-of-week of the UTC+7 calendar date
+    const daysSinceMonday = (dow + 6) % 7; // 0 = Monday
+
+    // Start of current week (Monday) in date-only UTC
+    const currentWeekMonday = new Date(
+      todayDateOnlyUtc.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000,
+    );
+    const lastMondayDateOnly = new Date(
+      currentWeekMonday.getTime() - 7 * 24 * 60 * 60 * 1000,
+    );
+    const lastSundayDateOnly = new Date(
+      lastMondayDateOnly.getTime() + 6 * 24 * 60 * 60 * 1000,
+    );
+
+    const lastMondayKey = lastMondayDateOnly.toISOString().split('T')[0];
+    const lastSundayKey = lastSundayDateOnly.toISOString().split('T')[0];
+    const startTs = this.utc7DayStart(lastMondayKey);
+    const endTs = this.utc7DayEnd(lastSundayKey);
+
+    this.logger.log(
+      `Auto-generating weekly report for ${lastMondayKey} to ${lastSundayKey}`,
     );
 
     // Check if report already exists
     const existing = await this.statisticRepository.findByDateRangeAndPeriod(
-      lastMonday,
-      lastSunday,
+      lastMondayDateOnly,
+      lastSundayDateOnly,
       StatisticPeriod.WEEKLY,
     );
 
@@ -218,23 +279,19 @@ export class StatisticService {
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .where('order.createdAt >= :startDate', { startDate: lastMonday })
-      .andWhere('order.createdAt <= :endDate', { endDate: lastSunday })
+      .where('order.createdAt >= :startDate', { startDate: startTs })
+      .andWhere('order.createdAt <= :endDate', { endDate: endTs })
       .andWhere('order.status = :status', { status: 'paid' })
       .getMany();
 
     const stats = this.computeStatistics(orders);
-    const dailyBreakdown = this.computeDailyBreakdown(
-      orders,
-      lastMonday,
-      lastSunday,
-    );
+    const dailyBreakdown = this.computeDailyBreakdown(orders, startTs, endTs);
 
     const report = await this.statisticRepository.create({
-      date: new Date(),
+      date: this.dateOnlyFromKey(this.formatDateUTC7(now)),
       period: StatisticPeriod.WEEKLY,
-      startDate: lastMonday,
-      endDate: lastSunday,
+      startDate: lastMondayDateOnly,
+      endDate: lastSundayDateOnly,
       ...stats,
       dailyBreakdown,
     });
@@ -260,8 +317,15 @@ export class StatisticService {
       now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
     const month = now.getMonth() === 0 ? 12 : now.getMonth(); // Previous month
 
-    const startOfMonth = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    // Date-only range in UTC (represents UTC+7 calendar dates)
+    const startOfMonthDateOnly = new Date(
+      Date.UTC(year, month - 1, 1, 0, 0, 0, 0),
+    );
+    const endOfMonthDateOnly = new Date(Date.UTC(year, month, 0, 0, 0, 0, 0));
+    const startKey = startOfMonthDateOnly.toISOString().split('T')[0];
+    const endKey = endOfMonthDateOnly.toISOString().split('T')[0];
+    const startTs = this.utc7DayStart(startKey);
+    const endTs = this.utc7DayEnd(endKey);
 
     this.logger.log(
       `Auto-generating monthly report for ${year}-${month.toString().padStart(2, '0')}`,
@@ -269,8 +333,8 @@ export class StatisticService {
 
     // Check if report already exists
     const existing = await this.statisticRepository.findByDateRangeAndPeriod(
-      startOfMonth,
-      endOfMonth,
+      startOfMonthDateOnly,
+      endOfMonthDateOnly,
       StatisticPeriod.MONTHLY,
     );
 
@@ -287,23 +351,19 @@ export class StatisticService {
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.orderItems', 'orderItems')
       .leftJoinAndSelect('orderItems.item', 'item')
-      .where('order.createdAt >= :startDate', { startDate: startOfMonth })
-      .andWhere('order.createdAt <= :endDate', { endDate: endOfMonth })
+      .where('order.createdAt >= :startDate', { startDate: startTs })
+      .andWhere('order.createdAt <= :endDate', { endDate: endTs })
       .andWhere('order.status = :status', { status: 'paid' })
       .getMany();
 
     const stats = this.computeStatistics(orders);
-    const dailyBreakdown = this.computeDailyBreakdown(
-      orders,
-      startOfMonth,
-      endOfMonth,
-    );
+    const dailyBreakdown = this.computeDailyBreakdown(orders, startTs, endTs);
 
     const report = await this.statisticRepository.create({
-      date: new Date(),
+      date: this.dateOnlyFromKey(this.formatDateUTC7(now)),
       period: StatisticPeriod.MONTHLY,
-      startDate: startOfMonth,
-      endDate: endOfMonth,
+      startDate: startOfMonthDateOnly,
+      endDate: endOfMonthDateOnly,
       ...stats,
       dailyBreakdown,
     });
@@ -342,7 +402,7 @@ export class StatisticService {
 
     orders.forEach((order) => {
       const orderDate = new Date(order.createdAt);
-      const dateKey = orderDate.toISOString().split('T')[0];
+      const dateKey = this.formatDateUTC7(orderDate);
 
       if (!ordersByDate.has(dateKey)) {
         ordersByDate.set(dateKey, []);
@@ -352,11 +412,13 @@ export class StatisticService {
 
     // Generate daily breakdown for each day in range
     const breakdown = [];
-    const current = new Date(startDate);
-    current.setHours(0, 0, 0, 0);
+    const startKey = this.formatDateUTC7(startDate);
+    const endKey = this.formatDateUTC7(endDate);
+    let current = this.utc7DayStart(startKey);
+    const endDay = this.utc7DayStart(endKey);
 
-    while (current <= endDate) {
-      const dateKey = current.toISOString().split('T')[0];
+    while (current <= endDay) {
+      const dateKey = this.formatDateUTC7(current);
       const dayOrders = ordersByDate.get(dateKey) || [];
 
       const revenue = dayOrders.reduce(
@@ -373,14 +435,14 @@ export class StatisticService {
 
       breakdown.push({
         date: dateKey,
-        dayOfWeek: current.getDay(),
-        dayName: dayNames[current.getDay()],
+        dayOfWeek: new Date(`${dateKey}T00:00:00.000Z`).getUTCDay(),
+        dayName: dayNames[new Date(`${dateKey}T00:00:00.000Z`).getUTCDay()],
         revenue,
         orders: dayOrders.length,
         productsSold,
       });
 
-      current.setDate(current.getDate() + 1);
+      current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
     }
 
     return breakdown;
@@ -454,14 +516,11 @@ export class StatisticService {
    */
   async getStatistics(query: QueryStatisticDto) {
     if (query.startDate && query.endDate) {
-      const startDate = parseDateAsUTC7(query.startDate);
-      const endDate = parseDateAsUTC7(query.endDate);
+      const startKey = this.normalizeInputToUTC7DateKey(query.startDate);
+      const endKey = this.normalizeInputToUTC7DateKey(query.endDate);
+      const startDate = this.dateOnlyFromKey(startKey);
+      const endDate = this.dateOnlyFromKey(endKey);
 
-      if (!startDate || !endDate) {
-        throw new BadRequestException(
-          'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
-        );
-      }
       return this.statisticRepository.findByDateRange(
         startDate,
         endDate,
@@ -485,5 +544,257 @@ export class StatisticService {
       throw new NotFoundException('Không tìm thấy báo cáo');
     }
     return report;
+  }
+
+  async createExcelFile(id: string) {
+    const statistic = await this.getReportById(id);
+    if (!statistic) {
+      throw new NotFoundException('Không tìm thấy báo cáo');
+    }
+
+    const normalizeJsonArray = <T>(value: any): T[] => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value as T[];
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? (parsed as T[]) : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    // Reuse style objects to avoid generating too many distinct styles (Excel may repair styles.xml)
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    };
+
+    const headerFill: ExcelJS.Fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEFEFEF' },
+    };
+
+    const applyTableStyle = (
+      sheet: ExcelJS.Worksheet,
+      headerRowNumber: number,
+      firstDataRowNumber: number,
+    ) => {
+      const headerRow = sheet.getRow(headerRowNumber);
+      headerRow.font = { bold: true, size: 12 };
+      headerRow.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      headerRow.height = 22;
+
+      // Only style existing header cells
+      headerRow.eachCell((cell) => {
+        cell.fill = headerFill;
+        cell.border = thinBorder;
+      });
+
+      const lastRowNumber = sheet.lastRow?.number ?? headerRowNumber;
+
+      // Style borders for data cells (avoid includeEmpty to prevent styling huge empty areas)
+      for (let r = firstDataRowNumber; r <= lastRowNumber; r++) {
+        const row = sheet.getRow(r);
+        row.eachCell((cell) => {
+          cell.border = thinBorder;
+        });
+      }
+
+      // Slightly nicer alignment for data rows
+      for (let r = firstDataRowNumber; r <= lastRowNumber; r++) {
+        const row = sheet.getRow(r);
+        row.alignment = { vertical: 'middle', wrapText: true };
+      }
+    };
+
+    const addMergedHeader = (
+      sheet: ExcelJS.Worksheet,
+      columnCount: number,
+      title: string,
+      subtitleLines: string[],
+    ) => {
+      // Layout:
+      // Row 1: title (merged)
+      // Row 2: subtitle (merged, may include line breaks)
+      // Row 3: blank
+      const lastCol = sheet.getColumn(columnCount).letter;
+      sheet.mergeCells(`A1:${lastCol}1`);
+      sheet.getCell('A1').value = title;
+      sheet.getCell('A1').font = { bold: true, size: 16 };
+      sheet.getCell('A1').alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
+      sheet.getRow(1).height = 36;
+
+      sheet.mergeCells(`A2:${lastCol}2`);
+      sheet.getCell('A2').value = subtitleLines.filter(Boolean).join('\n');
+      sheet.getCell('A2').font = { italic: true, size: 11 };
+      sheet.getCell('A2').alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      sheet.getRow(2).height = 70;
+
+      sheet.getRow(3).height = 8;
+    };
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Cafe Management';
+    workbook.created = new Date();
+
+    const createdKey = this.formatDateUTC7(statistic.date);
+    const startKey = statistic.startDate
+      ? this.formatDateUTC7(statistic.startDate)
+      : '';
+    const endKey = statistic.endDate
+      ? this.formatDateUTC7(statistic.endDate)
+      : '';
+    const periodLabel: Record<string, string> = {
+      [StatisticPeriod.DAILY]: 'Ngày',
+      [StatisticPeriod.WEEKLY]: 'Tuần',
+      [StatisticPeriod.MONTHLY]: 'Tháng',
+      [StatisticPeriod.CUSTOM]: 'Tùy chỉnh',
+    };
+    const subtitleBase = [
+      `Kỳ báo cáo: ${periodLabel[statistic.period] ?? statistic.period}`,
+      startKey && endKey ? `Khoảng thời gian: ${startKey} → ${endKey}` : '',
+      createdKey ? `Ngày tạo: ${createdKey}` : '',
+      `Mã báo cáo: ${statistic.id}`,
+    ].filter(Boolean);
+
+    const topProducts = normalizeJsonArray<any>(statistic.topProducts);
+    const dailyBreakdown = normalizeJsonArray<any>(statistic.dailyBreakdown);
+
+    // Excel worksheet name max length is 31; keep it stable & valid.
+    const worksheet = workbook.addWorksheet('Tổng quan');
+    worksheet.columns = [
+      { key: 'date', width: 15 },
+      { key: 'startDate', width: 18 },
+      { key: 'endDate', width: 18 },
+      { key: 'totalRevenue', width: 21 },
+      { key: 'totalOrders', width: 21 },
+      { key: 'totalProductsSold', width: 30 },
+      { key: 'averageOrderValue', width: 33 },
+    ];
+
+    addMergedHeader(worksheet, 7, 'BÁO CÁO THỐNG KÊ - TỔNG QUAN', subtitleBase);
+
+    const overviewHeaderRow = worksheet.getRow(4);
+    overviewHeaderRow.values = [
+      'Ngày tạo',
+      'Ngày bắt đầu',
+      'Ngày kết thúc',
+      'Tổng doanh thu',
+      'Tổng số đơn hàng',
+      'Tổng số sản phẩm bán ra',
+      'Giá trị đơn hàng trung bình',
+    ];
+
+    worksheet.addRow({
+      date: createdKey,
+      startDate: startKey,
+      endDate: endKey,
+      totalRevenue: statistic.totalRevenue,
+      totalOrders: statistic.totalOrders,
+      totalProductsSold: statistic.totalProductsSold,
+      averageOrderValue: statistic.averageOrderValue,
+    });
+
+    worksheet.views = [{ state: 'frozen', ySplit: 4 }];
+    worksheet.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4, column: 7 },
+    };
+
+    worksheet.getColumn('totalRevenue').numFmt = '#,##0 đ';
+    worksheet.getColumn('averageOrderValue').numFmt = '#,##0 đ';
+    applyTableStyle(worksheet, 4, 5);
+
+    // top products sheet
+    const topProductsSheet = workbook.addWorksheet('Sản phẩm bán chạy');
+    topProductsSheet.columns = [
+      { key: 'itemId', width: 36 },
+      { key: 'itemName', width: 30 },
+      { key: 'totalQuantity', width: 30 },
+      { key: 'totalRevenue', width: 20 },
+    ];
+
+    addMergedHeader(
+      topProductsSheet,
+      4,
+      'BÁO CÁO THỐNG KÊ - SẢN PHẨM BÁN CHẠY',
+      subtitleBase,
+    );
+    const topHeaderRow = topProductsSheet.getRow(4);
+    topHeaderRow.values = [
+      'Mã sản phẩm',
+      'Tên sản phẩm',
+      'Tổng số lượng bán ra',
+      'Tổng doanh thu',
+    ];
+
+    if (topProducts.length) {
+      topProductsSheet.addRows(topProducts);
+    }
+
+    topProductsSheet.views = [{ state: 'frozen', ySplit: 4 }];
+    topProductsSheet.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4, column: 4 },
+    };
+    topProductsSheet.getColumn('totalRevenue').numFmt = '#,##0 đ';
+    applyTableStyle(topProductsSheet, 4, 5);
+
+    // detail daily breakdown sheet
+    const dailySheet = workbook.addWorksheet('Báo cáo chi tiết theo ngày');
+    dailySheet.columns = [
+      { key: 'date', width: 15 },
+      { key: 'dayName', width: 20 },
+      { key: 'revenue', width: 20 },
+      { key: 'orders', width: 18 },
+      { key: 'productsSold', width: 25 },
+    ];
+
+    addMergedHeader(
+      dailySheet,
+      5,
+      'BÁO CÁO THỐNG KÊ - CHI TIẾT THEO NGÀY',
+      subtitleBase,
+    );
+    const dailyHeaderRow = dailySheet.getRow(4);
+    dailyHeaderRow.values = [
+      'Ngày',
+      'Ngày trong tuần',
+      'Doanh thu',
+      'Số đơn hàng',
+      'Số sản phẩm bán ra',
+    ];
+
+    if (dailyBreakdown.length) {
+      dailySheet.addRows(dailyBreakdown);
+    }
+
+    dailySheet.views = [{ state: 'frozen', ySplit: 4 }];
+    dailySheet.autoFilter = {
+      from: { row: 4, column: 1 },
+      to: { row: 4, column: 5 },
+    };
+    dailySheet.getColumn('revenue').numFmt = '#,##0 đ';
+    applyTableStyle(dailySheet, 4, 5);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return buffer;
   }
 }
