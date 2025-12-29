@@ -15,7 +15,7 @@ export class MailService {
   async sendOtpEmail(email: string, otp: string): Promise<void> {
     const sentFrom = new Sender(
       this.configService.get('MAIL_USER'),
-      'Cafe Management',
+      this.configService.get('MAIL_NAME'),
     );
 
     const recipients = [new Recipient(email, email.split('@')[0])];
