@@ -10,7 +10,7 @@ export default () => {
     password: process.env.DATABASE_PASSWORD,
     database: process.env.DATABASE_NAME,
     url: process.env.DATABASE_URL,
-    entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+    autoLoadEntities: true,
     // bỏ khi lên production
     synchronize: process.env.NODE_ENV !== 'production',
     timezone: 'Z', // Store as UTC, app handles UTC+7 conversion

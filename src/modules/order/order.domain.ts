@@ -7,6 +7,7 @@ import { User } from '../users/users.domain';
 export class Order {
   id: string;
   totalAmount: number;
+  ingredientCost?: number;
   status: OrderStatus;
   orderCode: string;
   createdBy: Partial<User>;

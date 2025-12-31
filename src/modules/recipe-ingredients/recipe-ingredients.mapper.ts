@@ -13,6 +13,7 @@ export class RecipeIngredientsMapper {
       name: entity.ingredient.name,
       amountLeft: entity.ingredient.amountLeft,
       measureUnit: entity.ingredient.measureUnit,
+      pricePerUnit: (entity.ingredient as any).pricePerUnit,
     };
     domain.amount = entity.amount;
     return domain;

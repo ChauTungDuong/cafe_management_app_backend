@@ -12,6 +12,7 @@ import { OrderMapper } from './order.mapper';
 import { IngredientEntity } from 'src/database/entity/ingredient.entity';
 import { RecipeEntity } from 'src/database/entity/recipe.entity';
 import { PaymentEntity } from 'src/database/entity/payment.entity';
+import { LogEntity, Action } from 'src/database/entity/log.entity';
 
 @Injectable()
 export class OrderRepository {
@@ -36,6 +37,7 @@ export class OrderRepository {
 
   async create(
     orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+    actor?: { id?: string; name?: string; role?: any },
   ): Promise<Order> {
     const createdByUser = await this.usersRepository.findOne({
       where: { id: orderData.createdBy.id },
@@ -68,6 +70,7 @@ export class OrderRepository {
     const result = await this.orderRepository.manager.transaction(
       async (manager) => {
         let subtotal = 0;
+        let ingredientCost = 0;
         const itemsToCreate: Array<{ item: ItemEntity; amount: number }> = [];
 
         for (const orderItemData of orderData.orderItems) {
@@ -101,6 +104,17 @@ export class OrderRepository {
                       `Not enough ingredient ${ingredient.name} for item ${item.name}`,
                     );
                   }
+
+                  const unitCost = Number(
+                    (ingredient as any).pricePerUnit?.price,
+                  );
+                  if (!Number.isFinite(unitCost)) {
+                    throw new BadRequestException(
+                      `Missing/invalid pricePerUnit for ingredient ${ingredient.name}`,
+                    );
+                  }
+                  ingredientCost += Number(required) * unitCost;
+
                   // decrement and save via transactional manager
                   ingredient.amountLeft =
                     Number(ingredient.amountLeft) - Number(required);
@@ -149,6 +163,7 @@ export class OrderRepository {
         const orderEntity = manager.getRepository(OrderEntity).create({
           orderCode: orderCode,
           totalAmount: Math.round(totalAmount),
+          ingredientCost: Number(ingredientCost.toFixed(2)),
           status: orderData.status || 'pending',
           createdBy: await manager
             .getRepository(UsersEntity)
@@ -162,6 +177,28 @@ export class OrderRepository {
         const savedOrder = await manager
           .getRepository(OrderEntity)
           .save(orderEntity);
+
+        // Audit log: order created
+        if (actor?.id) {
+          await manager.getRepository(LogEntity).save(
+            manager.getRepository(LogEntity).create({
+              userId: actor.id,
+              userName: actor.name,
+              userRole: actor.role,
+              action: Action.CREATE,
+              entityType: 'order',
+              entityId: savedOrder.id,
+              entityName: orderCode,
+              message: `${actor.name ?? actor.id} tạo hóa đơn id: ${savedOrder.id}`,
+              metadata: {
+                orderCode,
+                totalAmount: Math.round(totalAmount),
+                ingredientCost: Number(ingredientCost.toFixed(2)),
+                tableId: orderData.table?.id,
+              },
+            }),
+          );
+        }
 
         const orderItems: OrderItemEntity[] = [];
         for (const { item, amount } of itemsToCreate) {

@@ -7,7 +7,9 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Roles } from '../auth/roles.decorator';
@@ -19,8 +21,8 @@ export class OrderController {
 
   @Roles(Role.ADMIN, Role.STAFF)
   @Post()
-  createOrder(@Body() createOrderDto: CreateOrderDto) {
-    return this.orderService.createOrder(createOrderDto);
+  createOrder(@Body() createOrderDto: CreateOrderDto, @Req() req: Request) {
+    return this.orderService.createOrder(createOrderDto, req.user as any);
   }
 
   @Roles(Role.ADMIN, Role.STAFF)

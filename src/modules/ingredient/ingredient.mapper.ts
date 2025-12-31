@@ -13,6 +13,10 @@ export class IngredientMapper {
     domain.measureUnit = entity.measureUnit;
     domain.imagePublicId = entity.imagePublicId;
     domain.image = entity.image;
+    domain.pricePerUnit = {
+      price: Number(entity.pricePerUnit?.price ?? 0),
+      unit: (entity.pricePerUnit?.unit ?? entity.measureUnit) as any,
+    };
     domain.minAmount = entity.minAmount;
     domain.createdAt = entity.createdAt;
     domain.updatedAt = entity.updatedAt;
@@ -32,6 +36,10 @@ export class IngredientMapper {
     entity.amountLeft = domain.amountLeft;
     entity.measureUnit = domain.measureUnit;
     entity.minAmount = domain.minAmount;
+    entity.pricePerUnit = {
+      price: Number(domain.pricePerUnit?.price ?? 0),
+      unit: domain.pricePerUnit?.unit ?? domain.measureUnit,
+    } as any;
     entity.image = domain.image;
     entity.imagePublicId = domain.imagePublicId;
     return entity;

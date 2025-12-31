@@ -24,6 +24,9 @@ import { IngredientModule } from './modules/ingredient/ingredient.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { StatisticModule } from './modules/statistic/statistic.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { LogModule } from './modules/log/log.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ActivityLogInterceptor } from './modules/log/activity-log.interceptor';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -54,6 +57,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
     RecipeModule,
     StatisticModule,
     TasksModule,
+    LogModule,
   ],
   controllers: [AppController],
   providers: [
@@ -65,6 +69,10 @@ import { TasksModule } from './modules/tasks/tasks.module';
     {
       provide: 'APP_GUARD',
       useClass: RoleGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ActivityLogInterceptor,
     },
   ],
 })

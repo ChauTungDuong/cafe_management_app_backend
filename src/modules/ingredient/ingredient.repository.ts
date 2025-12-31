@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IngredientEntity } from 'src/database/entity/ingredient.entity';
 import { Repository } from 'typeorm';
@@ -70,5 +74,27 @@ export class IngredientRepository {
       throw new NotFoundException('Ingredient not found');
     }
     await this.ingredientRepository.softRemove(ingredientEntity);
+  }
+  async changeStock(id: Ingredient['id'], amount: number) {
+    const ingredientEntity = await this.findById(id);
+    if (!ingredientEntity) {
+      throw new NotFoundException('Ingredient not found');
+    }
+    if (amount === 0) {
+      return ingredientEntity;
+    }
+    if (amount > 0) {
+      ingredientEntity.amountLeft += amount;
+    } else if (amount < 0) {
+      if (ingredientEntity.amountLeft + amount < 0) {
+        throw new BadRequestException(
+          'Not enough in-stock to export for ingredient: ' + ingredientEntity.name,
+        );
+      }
+      ingredientEntity.amountLeft += amount;
+    }
+    return await this.ingredientRepository.save({
+      ...ingredientEntity,
+    });
   }
 }

@@ -9,15 +9,11 @@ import {
   IsOptional,
 } from 'class-validator';
 import { MeasureUnit } from 'src/utils/constant';
+import { PriceUnitDto } from './create-ingredient.dto';
 
 export class BulkIngredientItemDto {
   @IsString()
   name: string;
-
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  amountLeft: number;
 
   @IsEnum(MeasureUnit)
   measureUnit: MeasureUnit;
@@ -26,6 +22,10 @@ export class BulkIngredientItemDto {
   @IsNumber()
   @Type(() => Number)
   minAmount?: number;
+
+  @ValidateNested()
+  @Type(() => PriceUnitDto)
+  pricePerUnit: PriceUnitDto;
 }
 
 export class BulkCreateIngredientDto {

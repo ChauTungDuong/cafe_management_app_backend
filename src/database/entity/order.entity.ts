@@ -26,6 +26,9 @@ export class OrderEntity {
   @Column()
   totalAmount: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  ingredientCost: number;
+
   @Column({
     type: 'enum',
     default: 'pending',

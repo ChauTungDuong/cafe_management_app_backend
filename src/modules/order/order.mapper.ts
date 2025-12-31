@@ -9,6 +9,7 @@ export class OrderMapper {
     const domain = new Order();
     domain.id = entity.id;
     domain.totalAmount = entity.totalAmount;
+    domain.ingredientCost = (entity as any).ingredientCost;
     domain.status = entity.status;
     domain.orderCode = entity.orderCode;
     if (entity.createdBy) {

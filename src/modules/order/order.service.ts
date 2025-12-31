@@ -11,7 +11,10 @@ export class OrderService {
     private itemRepository: ItemRepository,
   ) {}
 
-  async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
+  async createOrder(
+    createOrderDto: CreateOrderDto,
+    actor?: any,
+  ): Promise<Order> {
     const orderData: Omit<
       Order,
       'id' | 'createdAt' | 'updatedAt' | 'deletedAt'
@@ -30,7 +33,7 @@ export class OrderService {
       })),
     };
 
-    return this.orderRepository.create(orderData);
+    return this.orderRepository.create(orderData, actor);
   }
 
   async getAllOrders(filters?: any): Promise<Order[]> {

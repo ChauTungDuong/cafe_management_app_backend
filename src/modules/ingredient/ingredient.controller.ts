@@ -6,9 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { IngredientService } from './ingredient.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
@@ -17,6 +19,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
+import { ExportDto, ImportDto } from './dto/stock-ingredient.dto';
 
 @Controller('ingredients')
 export class IngredientController {
@@ -69,5 +72,17 @@ export class IngredientController {
   @Delete(':id')
   deleteIngredient(@Param('id') id: string) {
     return this.ingredientService.deleteIngredient(id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Post('import')
+  importIngredient(@Body() importDto: ImportDto, @Req() req: Request) {
+    return this.ingredientService.importIngredient(importDto, req.user as any);
+  }
+
+  @Roles(Role.ADMIN)
+  @Post('export')
+  exportIngredient(@Body() exportDto: ExportDto, @Req() req: Request) {
+    return this.ingredientService.exportIngredient(exportDto, req.user as any);
   }
 }

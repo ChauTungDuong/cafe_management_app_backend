@@ -10,6 +10,17 @@ import {
 import { RecipeEntity } from './recipe.entity';
 import { MeasureUnit } from 'src/utils/constant';
 import { RecipeIngredientsEntity } from './recipe_ingredients.entity';
+
+export class PriceUnit {
+  // Keep nullable to avoid schema-sync failures when legacy rows contain NULL.
+  // Domain/mappers treat NULL as 0.
+  @Column('decimal', { precision: 12, scale: 2, default: 0, nullable: true })
+  price: number;
+
+  @Column({ type: 'enum', enum: MeasureUnit, nullable: true })
+  unit: MeasureUnit;
+}
+
 @Entity('ingredient')
 export class IngredientEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -26,6 +37,9 @@ export class IngredientEntity {
 
   @Column({ nullable: true, default: 0 })
   minAmount?: number;
+
+  @Column(() => PriceUnit)
+  pricePerUnit: PriceUnit;
 
   @Column({ nullable: true })
   image?: string;
