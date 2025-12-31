@@ -114,6 +114,11 @@ export class TasksService {
       this.logger.error('Failed to update tax/discount status', error.stack);
     }
   }
+
+  @Cron('5 0 * * *', {
+    name: 'daily-statistics',
+    timeZone: 'Asia/Bangkok',
+  })
   async handleDailyStatistics() {
     this.logger.log('Running daily statistics auto-generation...');
     try {

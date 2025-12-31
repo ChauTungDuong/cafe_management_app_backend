@@ -13,6 +13,7 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { MailService } from './mail.service';
 import { TokenBlacklistService } from './token-blacklist.service';
 import { TokenBlacklistEntity } from 'src/database/entity/token-blacklist.entity';
+import { LogModule } from '../log/log.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TokenBlacklistEntity } from 'src/database/entity/token-blacklist.entity
     JwtModule.register({}),
     TypeOrmModule.forFeature([TokenBlacklistEntity]),
     CloudinaryModule,
+    LogModule,
   ],
   controllers: [AuthController],
   providers: [

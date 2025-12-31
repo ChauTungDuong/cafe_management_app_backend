@@ -12,6 +12,8 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { MailService } from './mail.service';
 import { TokenBlacklistService } from './token-blacklist.service';
 import * as bcrypt from 'bcrypt';
+import { LogService } from '../log/log.service';
+import { Action } from 'src/database/entity/log.entity';
 @Injectable()
 export class AuthService {
   private otpStore = new Map<string, { otp: string; expiresAt: number }>();
@@ -23,6 +25,7 @@ export class AuthService {
     private cloudinaryService: CloudinaryService,
     private mailService: MailService,
     private tokenBlacklistService: TokenBlacklistService,
+    private logService: LogService,
   ) {}
   async login(user: User) {
     if (!user.isActive) {
@@ -190,6 +193,23 @@ export class AuthService {
     await this.userService.updateUser(user.id, { password: hashedPassword });
     this.otpStore.delete(email);
     await this.userService.updateUserRefreshToken(user.id, null);
+
+    // Audit log: password reset/change succeeded
+    await this.logService.write({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: Action.UPDATE,
+      entityType: 'user',
+      entityId: user.id,
+      entityName: user.email,
+      message: `${user.name ?? user.email ?? user.id} đổi mật khẩu thành công`,
+      metadata: {
+        scope: 'auth',
+        type: 'reset-password',
+      },
+    });
+
     return {
       success: true,
       message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',

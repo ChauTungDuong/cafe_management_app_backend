@@ -38,6 +38,44 @@ function entityTypeFromBaseUrl(baseUrl?: string): string {
   return first || 'unknown';
 }
 
+function entityTypeFromRequest(baseUrl?: string, url?: string): string {
+  const fromBaseUrl = entityTypeFromBaseUrl(baseUrl);
+  if (fromBaseUrl && fromBaseUrl !== 'unknown') return fromBaseUrl;
+
+  const rawPath = (url || '').split('?')[0];
+  const clean = rawPath.replace(/^\/+/, '');
+  const first = clean.split('/')[0];
+
+  // If you use a global prefix like /api, skip it.
+  if (first === 'api') {
+    const second = clean.split('/')[1];
+    return second || 'unknown';
+  }
+
+  return first || 'unknown';
+}
+
+function shouldSkipLogging(methodUpper: string, url?: string): boolean {
+  const path = ((url || '').split('?')[0] || '').toLowerCase();
+
+  // Read-only requests never persist logs.
+  if (
+    methodUpper === 'GET' ||
+    methodUpper === 'HEAD' ||
+    methodUpper === 'OPTIONS'
+  ) {
+    return true;
+  }
+
+  // Token refresh is very frequent and is not a user-visible action.
+  if (path === '/auth/refresh' || path.endsWith('/auth/refresh')) {
+    return true;
+  }
+
+  // Viewing profile is read-only (GET) and already skipped above.
+  return false;
+}
+
 @Injectable()
 export class ActivityLogInterceptor implements NestInterceptor {
   constructor(private readonly logService: LogService) {}
@@ -52,21 +90,17 @@ export class ActivityLogInterceptor implements NestInterceptor {
     const startedAt = Date.now();
     const method = req.method;
     const methodUpper = (method || '').toUpperCase();
-    const isReadOnly =
-      methodUpper === 'GET' ||
-      methodUpper === 'HEAD' ||
-      methodUpper === 'OPTIONS';
+    const url = req.originalUrl || req.url;
 
-    // Don't persist logs for read-only requests (viewing/listing).
-    if (isReadOnly) {
+    if (shouldSkipLogging(methodUpper, url)) {
       return next.handle();
     }
-    const url = req.originalUrl || req.url;
+
     const baseUrl = req.baseUrl;
     const user = req.user;
 
     const action = actionFromRequest(method, url);
-    const entityType = entityTypeFromBaseUrl(baseUrl);
+    const entityType = entityTypeFromRequest(baseUrl, url);
     const entityId = req.params?.id;
 
     const actorName = user?.name ?? user?.email ?? user?.id;
