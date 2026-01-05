@@ -1,3 +1,9 @@
+// Polyfill crypto for Node 18 compatibility
+import * as crypto from 'crypto';
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = crypto.webcrypto;
+}
+
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';

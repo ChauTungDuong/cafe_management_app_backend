@@ -1,0 +1,275 @@
+// Auto-generated from TypeORM entities in src/database/entity
+// Notes:
+// - Column SQL types are inferred from decorators; where TypeORM uses defaults, types may vary by DB driver.
+// - Embedded columns (Ingredient.pricePerUnit.*) use TypeORM default naming: pricePerUnitPrice, pricePerUnitUnit.
+
+Enum role {
+  admin
+  staff
+}
+
+Enum measure_unit {
+  g
+  kg
+  l
+  ml
+  pcs
+  tsp
+  tbsp
+}
+
+Enum item_status {
+  available
+  "out of stock"
+  discontinued
+}
+
+Enum order_status {
+  pending
+  paid
+  cancelled
+}
+
+Enum payment_method {
+  cash
+  QR
+  card
+}
+
+Enum table_status {
+  available
+  occupied
+  reserved
+}
+
+Enum tax_discount_type {
+  tax
+  discount
+}
+
+Enum log_action {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  LOGIN
+  LOGOUT
+  ERROR
+}
+
+Enum statistic_period {
+  daily
+  weekly
+  monthly
+  custom
+}
+
+Table users {
+  id uuid [pk]
+  email varchar [not null, unique]
+  password varchar [not null]
+  name varchar [not null]
+  gender varchar [default: 'male']
+  birthday timestamp
+  phone varchar
+  address varchar
+  avatar varchar [default: '/public/defaults/default-avatar.png']
+  avatarPublicId varchar
+  role role [default: 'staff']
+  isActive boolean [default: true]
+  refreshToken varchar
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table categories {
+  id uuid [pk]
+  name varchar
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table item {
+  id uuid [pk]
+  name varchar [not null]
+  price int [not null]
+  description varchar
+  image varchar
+  imagePublicId varchar
+  status item_status [default: 'available']
+  categoryId uuid
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table ingredient {
+  id uuid [pk]
+  name varchar
+  amountLeft int
+  measureUnit measure_unit
+  minAmount int [default: 0]
+
+  // Embedded PriceUnit
+  pricePerUnitPrice decimal(12,2) [default: 0]
+  pricePerUnitUnit measure_unit
+
+  image varchar
+  imagePublicId varchar
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table recipe {
+  id uuid [pk]
+  itemId uuid
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table recipe_ingredients {
+  id uuid [pk]
+  ingredientId uuid
+  recipeId uuid
+  amount int
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table tables {
+  id uuid [pk]
+  name varchar
+  seat int
+  status table_status [default: 'available']
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table orders {
+  id uuid [pk]
+  totalAmount int
+  ingredientCost decimal(12,2) [default: 0]
+  status order_status [default: 'pending']
+  orderCode varchar [unique]
+
+  createdBy uuid
+  tableId uuid
+
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table order_item {
+  id uuid [pk]
+  amount int
+  orderId uuid
+  itemId uuid
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+Table payments {
+  id uuid [pk]
+  method payment_method
+  amount int
+  qrCode varchar
+  qrCodePublicId varchar
+  orderCode varchar
+  orderId uuid
+  createdAt timestamp
+  updateAt timestamp
+  deletedAt timestamp
+}
+
+Table tax_and_discount {
+  id uuid [pk]
+  name varchar
+  description varchar
+  percent decimal(10,2)
+  type tax_discount_type [default: 'tax']
+  isActive boolean [default: true]
+  applyFrom timestamp
+  applyTo timestamp
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+// Join table created by OrderEntity @ManyToMany + @JoinTable
+Table order_tax_discount {
+  orderId uuid [pk]
+  taxDiscountId uuid [pk]
+}
+
+Table token_blacklist {
+  id uuid [pk]
+  token text [unique]
+  expiresAt timestamp
+  userId uuid
+  createdAt timestamp
+}
+
+Table webhooks {
+  id int [pk, increment]
+  webhookId varchar
+  orderCode varchar
+  rawData jsonb
+  processed boolean [default: false]
+  processedAt timestamp
+  errorMessage text
+  createdAt timestamp
+}
+
+Table log {
+  id uuid [pk]
+  userId varchar
+  userName varchar
+  userRole role
+  action log_action
+  entityType varchar
+  entityId varchar
+  entityName varchar
+  message text
+  metadata jsonb
+  createdAt timestamp
+}
+
+Table statistics {
+  id uuid [pk]
+  date date
+  period statistic_period
+  startDate date
+  endDate date
+  totalRevenue decimal(12,2) [default: 0]
+  totalOrders int [default: 0]
+  averageOrderValue decimal(12,2) [default: 0]
+  totalProductsSold int [default: 0]
+  topProducts jsonb
+  dailyBreakdown jsonb
+  createdAt timestamp
+  updatedAt timestamp
+  deletedAt timestamp
+}
+
+// Relationships inferred from TypeORM relations (@ManyToOne/@OneToMany/@ManyToMany)
+Ref: item.categoryId > categories.id
+Ref: recipe.itemId > item.id
+Ref: recipe_ingredients.ingredientId > ingredient.id
+Ref: recipe_ingredients.recipeId > recipe.id
+Ref: orders.createdBy > users.id
+Ref: orders.tableId > tables.id
+Ref: order_item.orderId > orders.id
+Ref: order_item.itemId > item.id
+Ref: payments.orderId > orders.id [delete: cascade]
+Ref: order_tax_discount.orderId > orders.id
+Ref: order_tax_discount.taxDiscountId > tax_and_discount.id
