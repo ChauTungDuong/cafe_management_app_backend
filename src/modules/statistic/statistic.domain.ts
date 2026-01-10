@@ -11,6 +11,9 @@ export class Statistic {
   startDate?: Date;
   endDate?: Date;
   totalRevenue: number;
+  totalIngredientCost: number;
+  grossProfit: number;
+  grossMarginPercent: number;
   totalOrders: number;
   averageOrderValue: number;
   totalProductsSold: number;

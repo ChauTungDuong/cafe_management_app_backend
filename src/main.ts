@@ -4,6 +4,10 @@ if (!globalThis.crypto) {
   (globalThis as any).crypto = crypto.webcrypto;
 }
 
+// Force Node.js process to use UTC timezone for all Date operations
+// This ensures TypeORM @CreateDateColumn() generates UTC timestamps
+process.env.TZ = 'UTC';
+
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';

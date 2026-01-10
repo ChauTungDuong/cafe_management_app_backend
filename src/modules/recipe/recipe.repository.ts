@@ -12,15 +12,20 @@ export class RecipeRepository {
     private recipeRepository: Repository<RecipeEntity>,
   ) {}
 
-  async findAll(): Promise<{ data: Recipe[]; total: number }> {
-    const [entities, total] = await this.recipeRepository.findAndCount({
-      relations: [
-        'item',
-        'item.category',
-        'recipeIngredients',
-        'recipeIngredients.ingredient',
-      ],
-    });
+  async findAll(search?: string): Promise<{ data: Recipe[]; total: number }> {
+    const qb = this.recipeRepository
+      .createQueryBuilder('recipe')
+      .leftJoinAndSelect('recipe.item', 'item')
+      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('recipe.recipeIngredients', 'recipeIngredients')
+      .leftJoinAndSelect('recipeIngredients.ingredient', 'ingredient');
+
+    const q = (search ?? '').trim();
+    if (q) {
+      qb.andWhere('LOWER(item.name) LIKE :q', { q: `%${q.toLowerCase()}%` });
+    }
+
+    const [entities, total] = await qb.getManyAndCount();
 
     return {
       data: entities.map((entity) => RecipeMapper.toDomain(entity)),

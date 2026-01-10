@@ -3,6 +3,7 @@ import { OrderRepository } from './order.repository';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order } from './order.domain';
 import { ItemRepository } from '../item/item.repository';
+import { QueryOrdersDto } from './dto/query-orders.dto';
 
 @Injectable()
 export class OrderService {
@@ -36,7 +37,7 @@ export class OrderService {
     return this.orderRepository.create(orderData, actor);
   }
 
-  async getAllOrders(filters?: any): Promise<Order[]> {
+  async getAllOrders(filters?: QueryOrdersDto): Promise<Order[]> {
     return this.orderRepository.findAll(filters);
   }
 

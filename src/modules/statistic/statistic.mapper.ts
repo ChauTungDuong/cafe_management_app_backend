@@ -13,6 +13,9 @@ export class StatisticMapper {
     domain.startDate = entity.startDate;
     domain.endDate = entity.endDate;
     domain.totalRevenue = Number(entity.totalRevenue);
+    domain.totalIngredientCost = Number(entity.totalIngredientCost);
+    domain.grossProfit = Number(entity.grossProfit);
+    domain.grossMarginPercent = Number(entity.grossMarginPercent);
     domain.totalOrders = entity.totalOrders;
     domain.averageOrderValue = Number(entity.averageOrderValue);
     domain.totalProductsSold = entity.totalProductsSold;
@@ -37,6 +40,9 @@ export class StatisticMapper {
     entity.startDate = domain.startDate;
     entity.endDate = domain.endDate;
     entity.totalRevenue = domain.totalRevenue;
+    entity.totalIngredientCost = domain.totalIngredientCost;
+    entity.grossProfit = domain.grossProfit;
+    entity.grossMarginPercent = domain.grossMarginPercent;
     entity.totalOrders = domain.totalOrders;
     entity.averageOrderValue = domain.averageOrderValue;
     entity.totalProductsSold = domain.totalProductsSold;

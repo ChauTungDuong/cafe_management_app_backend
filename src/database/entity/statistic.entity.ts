@@ -27,6 +27,8 @@ export interface DailyBreakdown {
   dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
   dayName: string; // 'Monday', 'Tuesday', etc.
   revenue: number;
+  ingredientCost: number;
+  grossProfit: number;
   orders: number;
   productsSold: number;
 }
@@ -55,6 +57,16 @@ export class StatisticEntity {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   totalRevenue: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  totalIngredientCost: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  grossProfit: number;
+
+  // 0..100
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  grossMarginPercent: number;
 
   @Column({ type: 'int', default: 0 })
   totalOrders: number;

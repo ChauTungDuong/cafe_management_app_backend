@@ -13,9 +13,77 @@ import { IngredientEntity } from 'src/database/entity/ingredient.entity';
 import { RecipeEntity } from 'src/database/entity/recipe.entity';
 import { PaymentEntity } from 'src/database/entity/payment.entity';
 import { LogEntity, Action } from 'src/database/entity/log.entity';
+import { QueryOrdersDto } from './dto/query-orders.dto';
+import { parseDateAsUTC7 } from 'src/utils/timezone';
+import { MeasureUnit } from 'src/utils/constant';
 
 @Injectable()
 export class OrderRepository {
+  private readonly utc7TimeZone = 'Asia/Bangkok';
+
+  private convertQuantity(value: number, from: MeasureUnit, to: MeasureUnit) {
+    if (!Number.isFinite(value)) {
+      throw new BadRequestException('Invalid quantity');
+    }
+    if (!from || !to || from === to) return value;
+
+    // Weight
+    if (from === MeasureUnit.GRAM && to === MeasureUnit.KILOGRAM) {
+      return value / 1000;
+    }
+    if (from === MeasureUnit.KILOGRAM && to === MeasureUnit.GRAM) {
+      return value * 1000;
+    }
+
+    // Volume
+    if (from === MeasureUnit.MILLILITER && to === MeasureUnit.LITER) {
+      return value / 1000;
+    }
+    if (from === MeasureUnit.LITER && to === MeasureUnit.MILLILITER) {
+      return value * 1000;
+    }
+
+    // pcs/tsp/tbsp: cannot be safely converted without additional rules.
+    throw new BadRequestException(
+      `Unsupported unit conversion from ${from} to ${to}`,
+    );
+  }
+
+  private formatDateUTC7(input?: Date | string | number): string {
+    if (input === undefined || input === null || input === '') return '';
+    let date: Date;
+    if (input instanceof Date) date = input;
+    else if (typeof input === 'number') date = new Date(input);
+    else date = parseDateAsUTC7(input as string) || new Date(input as string);
+
+    if (!date || isNaN(date.getTime())) return '';
+
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.utc7TimeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  }
+
+  private normalizeInputToUTC7DateKey(input: string): string {
+    const parsed = parseDateAsUTC7(input);
+    if (!parsed) {
+      throw new BadRequestException(
+        'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD hoặc DD/MM/YYYY',
+      );
+    }
+    return this.formatDateUTC7(parsed);
+  }
+
+  private utc7DayStart(dateKey: string): Date {
+    return new Date(`${dateKey}T00:00:00.000+07:00`);
+  }
+
+  private utc7DayEnd(dateKey: string): Date {
+    return new Date(`${dateKey}T23:59:59.999+07:00`);
+  }
+
   constructor(
     @InjectRepository(OrderEntity)
     private orderRepository: Repository<OrderEntity>,
@@ -113,7 +181,19 @@ export class OrderRepository {
                       `Missing/invalid pricePerUnit for ingredient ${ingredient.name}`,
                     );
                   }
-                  ingredientCost += Number(required) * unitCost;
+
+                  const invUnit = ingredient.measureUnit as MeasureUnit;
+                  const costUnit =
+                    (((ingredient as any).pricePerUnit?.unit ??
+                      invUnit) as MeasureUnit) ?? invUnit;
+
+                  const requiredInCostUnit = this.convertQuantity(
+                    Number(required),
+                    invUnit,
+                    costUnit,
+                  );
+
+                  ingredientCost += Number(requiredInCostUnit) * unitCost;
 
                   // decrement and save via transactional manager
                   ingredient.amountLeft =
@@ -231,7 +311,7 @@ export class OrderRepository {
     return OrderMapper.toDomain(completeOrder);
   }
 
-  async findAll(filters?: any): Promise<Order[]> {
+  async findAll(filters?: QueryOrdersDto): Promise<Order[]> {
     // Fetch orders first; payments are loaded in a second query by orderId.
     let queryBuilder = this.orderRepository
       .createQueryBuilder('order')
@@ -246,6 +326,54 @@ export class OrderRepository {
     if (filters?.status) {
       queryBuilder = queryBuilder.where('order.status = :status', {
         status: filters.status,
+      });
+    }
+
+    if (filters?.tableId) {
+      queryBuilder = queryBuilder.andWhere('table.id = :tableId', {
+        tableId: filters.tableId,
+      });
+    }
+
+    if (filters?.createdBy) {
+      queryBuilder = queryBuilder.andWhere('createdBy.id = :createdById', {
+        createdById: filters.createdBy,
+      });
+    }
+
+    if (filters?.startDate && filters?.endDate) {
+      const startKey = this.normalizeInputToUTC7DateKey(filters.startDate);
+      const endKey = this.normalizeInputToUTC7DateKey(filters.endDate);
+      const startTs = this.utc7DayStart(startKey);
+      const endTs = this.utc7DayEnd(endKey);
+      if (startTs > endTs) {
+        throw new BadRequestException(
+          'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc',
+        );
+      }
+      queryBuilder = queryBuilder
+        .andWhere('order.createdAt >= :startDate', { startDate: startTs })
+        .andWhere('order.createdAt <= :endDate', { endDate: endTs });
+    }
+
+    if (filters?.paymentMethod) {
+      const paymentRows = await this.orderRepository.manager
+        .getRepository(PaymentEntity)
+        .createQueryBuilder('payment')
+        .select('DISTINCT payment.orderId', 'orderId')
+        .where('payment.method = :method', { method: filters.paymentMethod })
+        .getRawMany<{ orderId: string }>();
+
+      const orderIdsByPayment = paymentRows
+        .map((r) => r.orderId)
+        .filter(Boolean);
+
+      if (orderIdsByPayment.length === 0) {
+        return [];
+      }
+
+      queryBuilder = queryBuilder.andWhere('order.id IN (:...orderIds)', {
+        orderIds: orderIdsByPayment,
       });
     }
 

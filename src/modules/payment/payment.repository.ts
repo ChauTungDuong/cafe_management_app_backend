@@ -103,14 +103,6 @@ export class PaymentRepository {
 
     const savedPayment = await this.paymentRepository.save(paymentEntity);
 
-    console.log('✅ Payment saved:', {
-      id: savedPayment.id,
-      orderId: (savedPayment as any).orderId, // Check if orderId is actually saved
-      method: savedPayment.method,
-      amount: savedPayment.amount,
-      orderCode: savedPayment.orderCode,
-    });
-
     if (paymentData.method !== 'QR') {
       // Query all payments for this order to check if fully paid
       const allPayments = await this.paymentRepository
@@ -118,18 +110,6 @@ export class PaymentRepository {
         .where('payment.orderId = :orderId', { orderId: order.id })
         .andWhere('payment.deletedAt IS NULL')
         .getMany();
-
-      console.log(
-        '💰 All payments for order',
-        order.id,
-        ':',
-        allPayments.length,
-        allPayments.map((p) => ({
-          id: p.id,
-          method: p.method,
-          amount: p.amount,
-        })),
-      );
 
       const totalPaid = allPayments.reduce(
         (sum, p) => sum + Number(p.amount),

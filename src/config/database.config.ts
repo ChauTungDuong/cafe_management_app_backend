@@ -14,5 +14,8 @@ export default () => {
     // bỏ khi lên production
     synchronize: process.env.NODE_ENV !== 'production',
     timezone: 'Z', // Store as UTC, app handles UTC+7 conversion
+    extra: {
+      timezone: '+00:00', // Force session to UTC
+    },
   };
 };

@@ -14,6 +14,7 @@ import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
+import { QueryOrdersDto } from './dto/query-orders.dto';
 
 @Controller('orders')
 export class OrderController {
@@ -27,7 +28,7 @@ export class OrderController {
 
   @Roles(Role.ADMIN, Role.STAFF)
   @Get()
-  getAllOrders(@Query() filters?: any) {
+  getAllOrders(@Query() filters: QueryOrdersDto) {
     return this.orderService.getAllOrders(filters);
   }
 

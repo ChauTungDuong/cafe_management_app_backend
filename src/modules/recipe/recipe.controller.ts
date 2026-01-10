@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { RecipeService } from './recipe.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -25,8 +26,8 @@ export class RecipeController {
 
   @Roles(Role.ADMIN, Role.STAFF)
   @Get()
-  getAllRecipe() {
-    return this.recipeService.findAllRecipes();
+  getAllRecipe(@Query('search') search?: string) {
+    return this.recipeService.findAllRecipes(search);
   }
 
   @Roles(Role.ADMIN, Role.STAFF)

@@ -426,6 +426,13 @@ export class StatisticService {
         0,
       );
 
+      const ingredientCost = dayOrders.reduce((sum, order) => {
+        const cost = Number((order as any).ingredientCost ?? 0);
+        return sum + (Number.isFinite(cost) ? cost : 0);
+      }, 0);
+
+      const grossProfit = revenue - ingredientCost;
+
       let productsSold = 0;
       dayOrders.forEach((order) => {
         order.orderItems?.forEach((item) => {
@@ -438,6 +445,8 @@ export class StatisticService {
         dayOfWeek: new Date(`${dateKey}T00:00:00.000Z`).getUTCDay(),
         dayName: dayNames[new Date(`${dateKey}T00:00:00.000Z`).getUTCDay()],
         revenue,
+        ingredientCost,
+        grossProfit,
         orders: dayOrders.length,
         productsSold,
       });
@@ -457,6 +466,15 @@ export class StatisticService {
       (sum, order) => sum + Number(order.totalAmount),
       0,
     );
+
+    const totalIngredientCost = orders.reduce((sum, order) => {
+      const cost = Number((order as any).ingredientCost ?? 0);
+      return sum + (Number.isFinite(cost) ? cost : 0);
+    }, 0);
+
+    const grossProfit = totalRevenue - totalIngredientCost;
+    const grossMarginPercent =
+      totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     // Calculate total products sold and top products
@@ -504,6 +522,9 @@ export class StatisticService {
 
     return {
       totalRevenue,
+      totalIngredientCost,
+      grossProfit,
+      grossMarginPercent,
       totalOrders,
       averageOrderValue,
       totalProductsSold,
@@ -684,12 +705,20 @@ export class StatisticService {
       { key: 'startDate', width: 18 },
       { key: 'endDate', width: 18 },
       { key: 'totalRevenue', width: 21 },
+      { key: 'totalIngredientCost', width: 22 },
+      { key: 'grossProfit', width: 21 },
+      { key: 'grossMarginPercent', width: 20 },
       { key: 'totalOrders', width: 21 },
       { key: 'totalProductsSold', width: 30 },
       { key: 'averageOrderValue', width: 33 },
     ];
 
-    addMergedHeader(worksheet, 7, 'BÁO CÁO THỐNG KÊ - TỔNG QUAN', subtitleBase);
+    addMergedHeader(
+      worksheet,
+      10,
+      'BÁO CÁO THỐNG KÊ - TỔNG QUAN',
+      subtitleBase,
+    );
 
     const overviewHeaderRow = worksheet.getRow(4);
     overviewHeaderRow.values = [
@@ -697,6 +726,9 @@ export class StatisticService {
       'Ngày bắt đầu',
       'Ngày kết thúc',
       'Tổng doanh thu',
+      'Tổng chi nguyên liệu',
+      'Lợi nhuận gộp',
+      'Biên LN gộp (%)',
       'Tổng số đơn hàng',
       'Tổng số sản phẩm bán ra',
       'Giá trị đơn hàng trung bình',
@@ -707,6 +739,9 @@ export class StatisticService {
       startDate: startKey,
       endDate: endKey,
       totalRevenue: statistic.totalRevenue,
+      totalIngredientCost: (statistic as any).totalIngredientCost ?? 0,
+      grossProfit: (statistic as any).grossProfit ?? 0,
+      grossMarginPercent: (statistic as any).grossMarginPercent ?? 0,
       totalOrders: statistic.totalOrders,
       totalProductsSold: statistic.totalProductsSold,
       averageOrderValue: statistic.averageOrderValue,
@@ -715,10 +750,13 @@ export class StatisticService {
     worksheet.views = [{ state: 'frozen', ySplit: 4 }];
     worksheet.autoFilter = {
       from: { row: 4, column: 1 },
-      to: { row: 4, column: 7 },
+      to: { row: 4, column: 10 },
     };
 
     worksheet.getColumn('totalRevenue').numFmt = '#,##0 đ';
+    worksheet.getColumn('totalIngredientCost').numFmt = '#,##0 đ';
+    worksheet.getColumn('grossProfit').numFmt = '#,##0 đ';
+    worksheet.getColumn('grossMarginPercent').numFmt = '0.00"%"';
     worksheet.getColumn('averageOrderValue').numFmt = '#,##0 đ';
     applyTableStyle(worksheet, 4, 5);
 
@@ -763,13 +801,15 @@ export class StatisticService {
       { key: 'date', width: 15 },
       { key: 'dayName', width: 20 },
       { key: 'revenue', width: 20 },
+      { key: 'ingredientCost', width: 22 },
+      { key: 'grossProfit', width: 20 },
       { key: 'orders', width: 18 },
       { key: 'productsSold', width: 25 },
     ];
 
     addMergedHeader(
       dailySheet,
-      5,
+      7,
       'BÁO CÁO THỐNG KÊ - CHI TIẾT THEO NGÀY',
       subtitleBase,
     );
@@ -778,6 +818,8 @@ export class StatisticService {
       'Ngày',
       'Ngày trong tuần',
       'Doanh thu',
+      'Chi nguyên liệu',
+      'Lợi nhuận gộp',
       'Số đơn hàng',
       'Số sản phẩm bán ra',
     ];
@@ -789,9 +831,11 @@ export class StatisticService {
     dailySheet.views = [{ state: 'frozen', ySplit: 4 }];
     dailySheet.autoFilter = {
       from: { row: 4, column: 1 },
-      to: { row: 4, column: 5 },
+      to: { row: 4, column: 7 },
     };
     dailySheet.getColumn('revenue').numFmt = '#,##0 đ';
+    dailySheet.getColumn('ingredientCost').numFmt = '#,##0 đ';
+    dailySheet.getColumn('grossProfit').numFmt = '#,##0 đ';
     applyTableStyle(dailySheet, 4, 5);
 
     const buffer = await workbook.xlsx.writeBuffer();

@@ -84,8 +84,8 @@ export class RecipeService {
     });
   }
 
-  async findAllRecipes() {
-    return this.recipeRepository.findAll();
+  async findAllRecipes(search?: string) {
+    return this.recipeRepository.findAll(search);
   }
 
   async findById(id: string) {
