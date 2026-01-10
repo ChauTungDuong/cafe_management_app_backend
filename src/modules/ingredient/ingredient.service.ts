@@ -34,7 +34,7 @@ export class IngredientService {
         image,
         'ingredients',
       );
-      imageUrl = uploadResult.url;
+      imageUrl = (uploadResult as any).secure_url ?? uploadResult.url;
       imagePublicId = uploadResult.public_id;
     }
 
@@ -69,7 +69,7 @@ export class IngredientService {
         image,
         'ingredients',
       );
-      imageUrl = uploadResult.url;
+      imageUrl = (uploadResult as any).secure_url ?? uploadResult.url;
       imagePublicId = uploadResult.public_id;
     }
 
