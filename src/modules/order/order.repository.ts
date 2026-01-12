@@ -495,6 +495,54 @@ export class OrderRepository {
     return OrderMapper.toDomain(updatedOrder);
   }
 
+  async cancel(
+    id: string,
+    actor?: { id?: string; name?: string; role?: any },
+  ): Promise<Order> {
+    const existingOrder = await this.orderRepository.findOne({
+      where: { id },
+      relations: ['createdBy', 'table'],
+    });
+    if (!existingOrder) {
+      throw new BadRequestException('Order not found');
+    }
+
+    if (existingOrder.status === 'paid') {
+      throw new BadRequestException('Không thể hủy hóa đơn đã thanh toán');
+    }
+
+    if (existingOrder.status === 'cancelled') {
+      // Idempotent: already cancelled
+      return this.findById(id);
+    }
+
+    existingOrder.status = 'cancelled';
+    await this.orderRepository.save(existingOrder);
+
+    // Audit log: order cancelled
+    if (actor?.id) {
+      await this.orderRepository.manager.getRepository(LogEntity).save(
+        this.orderRepository.manager.getRepository(LogEntity).create({
+          userId: actor.id,
+          userName: actor.name,
+          userRole: actor.role,
+          action: Action.UPDATE,
+          entityType: 'order',
+          entityId: existingOrder.id,
+          entityName: existingOrder.orderCode,
+          message: `${actor.name ?? actor.id} hủy hóa đơn id: ${existingOrder.id}`,
+          metadata: {
+            orderCode: existingOrder.orderCode,
+            tableId: (existingOrder.table as any)?.id,
+            status: 'cancelled',
+          },
+        }),
+      );
+    }
+
+    return this.findById(id);
+  }
+
   async delete(id: string): Promise<void> {
     const order = await this.orderRepository.findOne({ where: { id } });
     if (!order) {

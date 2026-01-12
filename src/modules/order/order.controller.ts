@@ -44,6 +44,13 @@ export class OrderController {
     return this.orderService.updateOrder(id, updateData);
   }
 
+  // Staff can only cancel orders (status = 'cancelled')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @Patch(':id/cancel')
+  cancelOrder(@Param('id') id: string, @Req() req: Request) {
+    return this.orderService.cancelOrder(id, req.user as any);
+  }
+
   @Roles(Role.ADMIN)
   @Delete(':id')
   deleteOrder(@Param('id') id: string) {

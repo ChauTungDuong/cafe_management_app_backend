@@ -49,6 +49,13 @@ export class OrderService {
     return this.orderRepository.update(id, updateData);
   }
 
+  async cancelOrder(
+    id: string,
+    actor?: { id?: string; name?: string; role?: any },
+  ): Promise<Order> {
+    return this.orderRepository.cancel(id, actor);
+  }
+
   async deleteOrder(id: string): Promise<void> {
     return this.orderRepository.delete(id);
   }
