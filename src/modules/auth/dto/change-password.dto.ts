@@ -15,7 +15,6 @@ export class ChangePasswordDto {
   })
   newPassword: string;
 
-  // Optional confirmation field (frontend may send it). We'll validate equality in service.
   @IsString()
   confirmPassword?: string;
 }
