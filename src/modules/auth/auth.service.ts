@@ -14,6 +14,7 @@ import { TokenBlacklistService } from './token-blacklist.service';
 import * as bcrypt from 'bcrypt';
 import { LogService } from '../log/log.service';
 import { Action } from 'src/database/entity/log.entity';
+import { ChangePasswordDto } from './dto/change-password.dto';
 @Injectable()
 export class AuthService {
   private otpStore = new Map<string, { otp: string; expiresAt: number }>();
@@ -213,6 +214,57 @@ export class AuthService {
     return {
       success: true,
       message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
+    };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new BadRequestException('User không tồn tại');
+    }
+    if (!user.isActive) {
+      throw new BadRequestException('Tài khoản đã bị vô hiệu hóa');
+    }
+
+    if (
+      dto.confirmPassword != null &&
+      dto.confirmPassword !== dto.newPassword
+    ) {
+      throw new BadRequestException('Mật khẩu xác nhận không khớp');
+    }
+
+    const ok = await this.userService.comparePassword(
+      dto.currentPassword,
+      user.password ? user.password : '',
+    );
+    if (!ok) {
+      throw new BadRequestException('Mật khẩu hiện tại không đúng');
+    }
+
+    // Persist plaintext new password; entity hook will hash.
+    await this.userService.updateUser(user.id, { password: dto.newPassword });
+
+    // Force re-login by clearing refresh token.
+    await this.userService.updateUserRefreshToken(user.id, null);
+
+    await this.logService.write({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: Action.UPDATE,
+      entityType: 'user',
+      entityId: user.id,
+      entityName: user.email,
+      message: `${user.name ?? user.email ?? user.id} đổi mật khẩu`,
+      metadata: {
+        scope: 'auth',
+        type: 'change-password',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.',
     };
   }
 }

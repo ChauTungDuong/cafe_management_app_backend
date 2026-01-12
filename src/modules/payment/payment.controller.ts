@@ -27,18 +27,18 @@ export class PaymentController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   getAllPayments() {
     return this.paymentService.getAllPayments();
   }
   @Get(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   getPaymentById(@Param('id') id: string) {
     return this.paymentService.getPaymentById(id);
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   updatePayment(
     @Param('id') id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
@@ -47,7 +47,7 @@ export class PaymentController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   deletePayment(@Param('id') id: string) {
     return this.paymentService.deletePayment(id);
   }

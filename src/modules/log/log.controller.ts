@@ -8,7 +8,7 @@ import { LogService } from './log.service';
 export class LogController {
   constructor(private readonly logService: LogService) {}
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Get()
   async getLogs(@Query() query: GetLogsQueryDto) {
     return this.logService.list(query);

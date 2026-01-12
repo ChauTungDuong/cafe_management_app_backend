@@ -25,7 +25,11 @@ export class PaymentGateway
     console.log(`🔌 Client connected: ${client.id}`);
 
     // Client subscribes to an orderCode
-    client.on('subscribe', (orderCode: string) => {
+    client.on('subscribe', (payload: any) => {
+      const orderCode =
+        typeof payload === 'string' ? payload : (payload?.orderCode as string);
+      if (!orderCode) return;
+
       console.log(`📝 Client ${client.id} subscribed to order: ${orderCode}`);
       client.join(`order:${orderCode}`);
 
@@ -37,7 +41,11 @@ export class PaymentGateway
     });
 
     // Client unsubscribes from an orderCode
-    client.on('unsubscribe', (orderCode: string) => {
+    client.on('unsubscribe', (payload: any) => {
+      const orderCode =
+        typeof payload === 'string' ? payload : (payload?.orderCode as string);
+      if (!orderCode) return;
+
       console.log(
         `📝 Client ${client.id} unsubscribed from order: ${orderCode}`,
       );

@@ -23,6 +23,7 @@ import { UpdateUserDto } from '../users/dto/update-user-dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
 import { ResetPasswordDto, VerifyOtpDto } from './dto/forgot-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -56,6 +57,11 @@ export class AuthController {
     @UploadedFile() avatar: Express.Multer.File,
   ) {
     return this.authService.updateProfile(request, updateUserDto, avatar);
+  }
+
+  @Patch('change-password')
+  changePassword(@Req() request, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(request.user.id, dto);
   }
 
   @Post('logout')

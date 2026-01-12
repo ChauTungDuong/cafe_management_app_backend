@@ -18,7 +18,7 @@ export class TaxController {
   constructor(private taxService: TaxService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   createTax(@Body() createTaxDto: CreateTaxDto) {
     return this.taxService.createTax(createTaxDto);
   }
@@ -42,13 +42,13 @@ export class TaxController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   updateTax(@Param('id') id: string, @Body() updateData: UpdateTaxDto) {
     return this.taxService.updateTax(id, updateData);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   deleteTax(@Param('id') id: string) {
     return this.taxService.deleteTax(id);
   }

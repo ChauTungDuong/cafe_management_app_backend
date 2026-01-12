@@ -38,13 +38,13 @@ export class OrderController {
     return this.orderService.getOrderById(id);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   updateOrder(@Param('id') id: string, @Body() updateData: any) {
     return this.orderService.updateOrder(id, updateData);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   deleteOrder(@Param('id') id: string) {
     return this.orderService.deleteOrder(id);

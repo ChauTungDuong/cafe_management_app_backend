@@ -25,7 +25,7 @@ import { ExportDto, ImportDto } from './dto/stock-ingredient.dto';
 export class IngredientController {
   constructor(private ingredientService: IngredientService) {}
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Post()
   @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
   createIngredient(
@@ -35,7 +35,7 @@ export class IngredientController {
     return this.ingredientService.createIngredient(createIngredientDto, image);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Post('bulk')
   bulkCreateIngredients(@Body() bulkCreateDto: BulkCreateIngredientDto) {
     return this.ingredientService.bulkCreateIngredients(bulkCreateDto);
@@ -53,7 +53,7 @@ export class IngredientController {
     return this.ingredientService.findIngredientById(id);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
   updateIngredient(
@@ -68,7 +68,7 @@ export class IngredientController {
     );
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   deleteIngredient(@Param('id') id: string) {
     return this.ingredientService.deleteIngredient(id);

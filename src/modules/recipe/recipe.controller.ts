@@ -18,7 +18,7 @@ import { Role } from '../auth/roles.enum';
 export class RecipeController {
   constructor(private recipeService: RecipeService) {}
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Post()
   createRecipe(@Body() createRecipeDto: CreateRecipeDto) {
     return this.recipeService.createRecipe(createRecipeDto);
@@ -42,7 +42,7 @@ export class RecipeController {
     return this.recipeService.findById(id);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   updateRecipe(
     @Param('id') id: string,
@@ -51,7 +51,7 @@ export class RecipeController {
     return this.recipeService.updateRecipe(id, updateRecipeDto);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   deleteRecipe(@Param('id') id: string) {
     return this.recipeService.deleteRecipe(id);

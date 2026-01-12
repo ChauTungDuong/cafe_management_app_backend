@@ -46,11 +46,12 @@ export class UsersRepository {
     if (!user) {
       throw new Error('User not found');
     }
-    await this.usersRepository.save({
-      ...user,
-      ...updateData,
-    });
-    return UserMapper.toDomain(user);
+
+    // Important: update through an entity instance so lifecycle hooks (e.g. @BeforeUpdate
+    // password hashing) run consistently.
+    this.usersRepository.merge(user, updateData);
+    const savedUser = await this.usersRepository.save(user);
+    return UserMapper.toDomain(savedUser);
   }
 
   async delete(id: User['id']): Promise<void> {

@@ -14,7 +14,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { ItemService } from './item.service';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { BulkCreateItemDto } from './dto/bulk-create-item.dto';
-import { Public, Roles } from '../auth/roles.decorator';
+import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.interceptor';
@@ -23,7 +23,7 @@ import { ParseFormDataJsonInterceptor } from 'src/utils/parse-form-data.intercep
 export class ItemController {
   constructor(private itemService: ItemService) {}
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Post()
   @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
   createItem(
@@ -38,7 +38,7 @@ export class ItemController {
     return this.itemService.bulkCreateItems(bulkCreateItemDto);
   }
 
-  @Public()
+  @Roles(Role.ADMIN, Role.STAFF)
   @Get()
   getAllItems(@Query() filtersDto: any) {
     return this.itemService.getAllItems(filtersDto);
@@ -50,7 +50,7 @@ export class ItemController {
     return this.itemService.getItemById(id);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('image'), new ParseFormDataJsonInterceptor())
   updateItem(
@@ -61,7 +61,7 @@ export class ItemController {
     return this.itemService.updateItem(id, updateItemDto, image);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   deleteItem(@Param('id') id: string) {
     return this.itemService.deleteItem(id);

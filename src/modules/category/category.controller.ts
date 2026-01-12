@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CategoryService } from './category.service';
-import { Public, Roles } from '../auth/roles.decorator';
+import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/roles.enum';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
@@ -17,13 +17,13 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoryController {
   constructor(private categoryService: CategoryService) {}
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Post()
   createCategory(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoryService.createCategory(createCategoryDto);
   }
 
-  @Public()
+  @Roles(Role.ADMIN, Role.STAFF)
   @Get()
   getAllCategories() {
     return this.categoryService.getAllCategories();
@@ -35,7 +35,7 @@ export class CategoryController {
     return this.categoryService.getCategoryById(id);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   updateCategory(
     @Param('id') id: string,
@@ -44,7 +44,7 @@ export class CategoryController {
     return this.categoryService.updateCategory(id, updateCategoryDto);
   }
 
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   deleteCategory(@Param('id') id: string) {
     return this.categoryService.deleteCategory(id);

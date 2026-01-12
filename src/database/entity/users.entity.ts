@@ -71,7 +71,9 @@ export class UsersEntity {
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {
-    if (this.password) {
+    // Only hash when password is plaintext.
+    // If password already looks like a bcrypt hash, do not hash again.
+    if (this.password && !/^\$2[aby]\$/.test(this.password)) {
       const salt = bcrypt.genSaltSync(10);
       this.password = await bcrypt.hash(this.password, salt);
     }

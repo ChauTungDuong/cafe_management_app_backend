@@ -6,7 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
+  ForbiddenException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { TableService } from './table.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { Roles } from '../auth/roles.decorator';
@@ -18,7 +21,7 @@ export class TableController {
   constructor(private tableService: TableService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   createTable(@Body() createTableDto: CreateTableDto) {
     return this.tableService.createTable(createTableDto);
   }
@@ -37,12 +40,29 @@ export class TableController {
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.STAFF)
-  updateTable(@Param('id') id: string, @Body() updateTableDto: UpdateTableDto) {
+  updateTable(
+    @Param('id') id: string,
+    @Body() updateTableDto: UpdateTableDto,
+    @Req() req: Request,
+  ) {
+    // Staff is only allowed to update the table status.
+    const actor: any = (req as any).user;
+    if (actor?.role === Role.STAFF) {
+      const { status, ...rest } = (updateTableDto as any) ?? {};
+      const hasOtherFields = Object.values(rest).some(
+        (v) => v !== undefined && v !== null && v !== '',
+      );
+      if (hasOtherFields) {
+        throw new ForbiddenException(
+          'Staff can only update table status (status field).',
+        );
+      }
+    }
     return this.tableService.updateTable(id, updateTableDto);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.STAFF)
+  @Roles(Role.ADMIN)
   deleteTable(@Param('id') id: string) {
     return this.tableService.deleteTable(id);
   }
